@@ -1,5 +1,7 @@
-import React from 'react';
-import { CartItem } from '../types';
+import React, { useState } from 'react';
+import { CartItem, OrderStatus } from '../types';
+import { db } from '../firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 interface PaymentViewProps {
   cart: CartItem[];
@@ -8,9 +10,44 @@ interface PaymentViewProps {
 }
 
 export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComplete }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [receivedAmount, setReceivedAmount] = useState('500.00');
+
+  // Cálculos financieros
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const tax = subtotal * 0.16; // Using 16% from the screenshot example
+  const tax = subtotal * 0.16;
   const total = subtotal + tax;
+  const change = parseFloat(receivedAmount) - total;
+
+  const handlePayment = async () => {
+    if (cart.length === 0) return;
+
+    try {
+      setIsProcessing(true);
+      
+      // Construimos el objeto del pedido según tu documentación y tipos
+      const newOrder = {
+        customerName: "Cliente Mostrador", // Podrías agregar un input para esto
+        items: cart,
+        total: total,
+        status: OrderStatus.PREPARING, // Estado inicial para Cocina
+        createdAt: serverTimestamp(),
+        tableNumber: 5,
+        type: 'Dine-in'
+      };
+
+      // Guardar en Firestore
+      await addDoc(collection(db, "orders"), newOrder);
+      
+      // Finalizar flujo
+      onComplete(); 
+    } catch (error) {
+      console.error("Error al procesar el pedido:", error);
+      alert("Hubo un error al guardar el pedido. Intenta de nuevo.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   return (
     <main className="flex-1 p-4 lg:p-8 overflow-y-auto bg-background-dark">
@@ -24,12 +61,12 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                     </button>
                     <h1 className="text-white text-4xl font-black tracking-[-0.033em]">Procesar Pago</h1>
                 </div>
-                <p className="text-secondary text-base font-normal ml-14">Orden #124 • Mesa 5</p>
+                <p className="text-secondary text-base font-normal ml-14">Nueva Orden • Mesa 5</p>
             </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-            {/* Order Summary */}
+            {/* Resumen del Pedido */}
             <div className="lg:col-span-2">
                 <div className="bg-[#102316] rounded-xl border border-white/10 h-full flex flex-col">
                     <h3 className="text-white text-lg font-bold px-6 py-4 border-b border-white/10">Resumen del Pedido</h3>
@@ -71,7 +108,7 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                 </div>
             </div>
 
-            {/* Payment Methods & Actions */}
+            {/* Métodos de Pago y Acciones */}
             <div className="lg:col-span-3">
                 <div className="bg-[#102316] rounded-xl border border-white/10 p-6 space-y-6">
                     <div>
@@ -85,14 +122,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                                 <span className="material-symbols-outlined text-white text-4xl">credit_card</span>
                                 <span className="text-white font-semibold text-sm">Tarjeta</span>
                             </button>
-                            <button className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-white/10 hover:border-primary/50 hover:bg-white/5 transition-all">
-                                <span className="material-symbols-outlined text-white text-4xl">sync_alt</span>
-                                <span className="text-white font-semibold text-sm">Transferencia</span>
-                            </button>
-                            <button className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-white/10 hover:border-primary/50 hover:bg-white/5 transition-all">
-                                <span className="material-symbols-outlined text-white text-4xl">confirmation_number</span>
-                                <span className="text-white font-semibold text-sm">Vales</span>
-                            </button>
                         </div>
                     </div>
 
@@ -104,46 +133,38 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                                 <input 
                                     className="w-full pl-8 pr-4 py-3 rounded-lg bg-[#22492f]/40 border border-white/10 focus:ring-primary focus:border-primary text-white text-lg font-mono"
                                     type="text" 
-                                    defaultValue="500.00" 
+                                    value={receivedAmount}
+                                    onChange={(e) => setReceivedAmount(e.target.value)}
                                 />
                             </div>
-                        </div>
-
-                        <div className="flex items-end gap-2">
-                            <div className="flex-grow">
-                                <label className="block text-sm font-medium text-gray-300 mb-1">Aplicar Descuento</label>
-                                <input 
-                                    className="w-full px-4 py-3 rounded-lg bg-[#22492f]/40 border border-white/10 focus:ring-primary focus:border-primary text-white" 
-                                    placeholder="Ej: BIENVENIDO10" 
-                                    type="text"
-                                />
-                            </div>
-                            <button className="px-6 py-3 rounded-lg bg-[#22492f] text-primary font-bold text-sm hover:bg-[#2b593a] transition-colors border border-primary/20">
-                                Aplicar
-                            </button>
                         </div>
                     </div>
 
                     <div className="bg-[#22492f] p-4 rounded-xl flex justify-between items-center border border-primary/20">
                         <span className="text-lg font-bold text-white">Cambio a devolver</span>
-                        <span className="text-3xl font-black text-primary">$76.60</span>
+                        <span className={`text-3xl font-black ${change < 0 ? 'text-red-400' : 'text-primary'}`}>
+                            ${change.toFixed(2)}
+                        </span>
                     </div>
 
                     <div className="flex flex-col gap-3 pt-4 border-t border-white/10">
                         <button 
-                            onClick={onComplete}
-                            className="w-full bg-primary text-surface-darker font-bold py-4 rounded-xl text-lg hover:bg-primary-hover transition-colors shadow-lg shadow-primary/20"
+                            onClick={handlePayment}
+                            disabled={isProcessing || change < 0}
+                            className="w-full bg-primary text-surface-darker font-bold py-4 rounded-xl text-lg hover:bg-primary-hover transition-colors shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            Cobrar ${total.toFixed(2)}
+                            {isProcessing ? (
+                                <>
+                                    <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                                    Procesando...
+                                </>
+                            ) : (
+                                `Cobrar $${total.toFixed(2)}`
+                            )}
                         </button>
-                        <div className="flex gap-3">
-                            <button className="w-full bg-white/10 text-white font-bold py-3 rounded-xl text-base hover:bg-white/20 transition-colors">
-                                Dividir Cuenta
-                            </button>
-                            <button onClick={onBack} className="w-full bg-transparent text-gray-400 font-bold py-3 rounded-xl text-base hover:text-white hover:bg-white/5 transition-colors">
-                                Cancelar
-                            </button>
-                        </div>
+                        <button onClick={onBack} className="w-full bg-transparent text-gray-400 font-bold py-3 rounded-xl text-base hover:text-white hover:bg-white/5 transition-colors">
+                            Cancelar
+                        </button>
                     </div>
                 </div>
             </div>
