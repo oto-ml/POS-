@@ -1,5 +1,5 @@
 export interface MenuItem {
-  id: number;
+  id: string;
   name: string;
   price: number;
   image: string;
@@ -23,18 +23,22 @@ export enum OrderStatus {
 export interface Order {
   id: string;
   customerName: string;
-  customerEmail?: string;
   items: CartItem[];
   total: number;
   status: OrderStatus;
-  timestamp: Date;
+  timestamp: any;
   tableNumber?: number;
   type: 'Dine-in' | 'Takeaway' | 'Delivery';
-  notes?: string;
 }
 
-export interface KitchenTicket extends Order {
-  elapsedTime: string; // Mocked for UI
+// --- IMPORTANTE: Definiciones de Usuario ---
+export type UserRole = 'admin' | 'cashier';
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  name: string;
+  role: UserRole;
 }
 
 export type ViewState = 'POS' | 'PAYMENT' | 'ORDERS' | 'HISTORY' | 'KITCHEN' | 'SETTINGS' | 'HELP' | 'LOGIN';
