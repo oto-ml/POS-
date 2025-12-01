@@ -1,135 +1,338 @@
-import React from 'react';
-import { MOCK_ORDERS } from '../constants';
+import React, { useState, useEffect } from 'react';
+import { db } from '../firebase';
+import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { Order } from '../types';
 
 export const HistoryView: React.FC = () => {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  
+  // Estados para Modales
+  const [showTicketModal, setShowTicketModal] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+
+  // --- 1. CARGAR VENTAS POR FECHA ---
+  useEffect(() => {
+    const fetchOrdersByDate = async () => {
+      setLoading(true);
+      try {
+        // Definir rango de tiempo: Desde el inicio hasta el final del día seleccionado
+        const startOfDay = new Date(selectedDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        
+        const endOfDay = new Date(selectedDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        // Consultar Firestore
+        const q = query(
+            collection(db, "orders"),
+            where("createdAt", ">=", startOfDay),
+            where("createdAt", "<=", endOfDay),
+            orderBy("createdAt", "desc")
+        );
+
+        const querySnapshot = await getDocs(q);
+        const fetchedOrders = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+
+        setOrders(fetchedOrders);
+        if (fetchedOrders.length > 0) {
+            setSelectedOrder(fetchedOrders[0]);
+        } else {
+            setSelectedOrder(null);
+        }
+      } catch (error) {
+        console.error("Error cargando historial:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrdersByDate();
+  }, [selectedDate]);
+
+  // --- CALCULOS DEL RESUMEN DEL DÍA ---
+  const dailySummary = {
+      totalSales: orders.reduce((sum, order) => sum + (order.total || 0), 0),
+      totalOrders: orders.length,
+      cashTotal: orders.filter(o => o.paymentMethod === 'cash').reduce((sum, o) => sum + (o.total || 0), 0),
+      cardTotal: orders.filter(o => o.paymentMethod === 'card').reduce((sum, o) => sum + (o.total || 0), 0),
+  };
+
+  // --- MANEJO DE FECHAS ---
+  const changeDate = (days: number) => {
+      const newDate = new Date(selectedDate);
+      newDate.setDate(newDate.getDate() + days);
+      setSelectedDate(newDate);
+  };
+
+  const formatDate = (timestamp: any) => {
+      if (!timestamp) return '-';
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      return date.toLocaleString();
+  };
+
+  // --- MODAL DE TICKET (Reutilizable) ---
+  const TicketModal = ({ order, onClose, title }: { order: any, onClose: () => void, title: string }) => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="bg-white text-black w-full max-w-sm shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="p-6 text-center border-b-2 border-dashed border-gray-300">
+                <h2 className="text-xl font-black uppercase mb-1">Restaurante</h2>
+                <p className="text-xs font-mono text-gray-500">{title}</p>
+                <div className="mt-4 text-left font-mono text-xs">
+                    <p>Fecha: {order.createdAt ? formatDate(order.createdAt) : new Date().toLocaleString()}</p>
+                    {order.id && <p>Folio: #{order.id.slice(-6).toUpperCase()}</p>}
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 font-mono text-xs">
+                {title === 'CORTE DE CAJA' ? (
+                    // Layout para Resumen
+                    <div className="space-y-4">
+                        <div className="flex justify-between font-bold border-b border-black pb-1">
+                            <span>CONCEPTO</span>
+                            <span>MONTO</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Ventas Efectivo ({orders.filter(o => o.paymentMethod === 'cash').length})</span>
+                            <span>${dailySummary.cashTotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Ventas Tarjeta ({orders.filter(o => o.paymentMethod === 'card').length})</span>
+                            <span>${dailySummary.cardTotal.toFixed(2)}</span>
+                        </div>
+                        <div className="border-t border-dashed border-gray-400 my-2"></div>
+                        <div className="flex justify-between text-lg font-black">
+                            <span>TOTAL NETO</span>
+                            <span>${dailySummary.totalSales.toFixed(2)}</span>
+                        </div>
+                        <div className="mt-4 text-center text-gray-500">
+                            Total de Transacciones: {dailySummary.totalOrders}
+                        </div>
+                    </div>
+                ) : (
+                    // Layout para Venta Individual
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b border-black">
+                                <th className="text-left pb-2">Cant</th>
+                                <th className="text-left pb-2">Desc</th>
+                                <th className="text-right pb-2">Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-dashed divide-gray-300">
+                            {order.items?.map((item: any, idx: number) => (
+                                <tr key={idx}>
+                                    <td className="py-2 align-top">{item.quantity}</td>
+                                    <td className="py-2 align-top">{item.name}</td>
+                                    <td className="py-2 align-top text-right">${(item.price * item.quantity).toFixed(2)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+
+            {title !== 'CORTE DE CAJA' && (
+                <div className="p-6 bg-gray-50 border-t-2 border-dashed border-gray-300 font-mono text-xs">
+                    <div className="flex justify-between text-lg font-bold">
+                        <span>TOTAL</span>
+                        <span>${order.total?.toFixed(2)}</span>
+                    </div>
+                    <p className="mt-2">Pago: {order.paymentMethod === 'card' ? `Tarjeta **** ${order.paymentDetails?.last4 || ''}` : 'Efectivo'}</p>
+                </div>
+            )}
+
+            <div className="p-4 bg-gray-100 border-t border-gray-200 print:hidden text-center flex flex-col gap-2">
+                <button onClick={() => window.print()} className="bg-black text-white py-3 rounded font-bold hover:bg-gray-800">
+                    <span className="material-symbols-outlined align-middle mr-2">print</span>
+                    Imprimir
+                </button>
+                <button onClick={onClose} className="text-gray-600 font-bold py-2 hover:bg-gray-200 rounded">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+  );
+
   return (
     <main className="flex-1 p-6 lg:p-8 bg-background-dark overflow-y-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-white text-4xl font-black">Historial de Pedidos</h1>
-      </div>
+      <div className="max-w-[1600px] mx-auto h-full flex flex-col">
+        
+        {/* Header y Controles de Fecha */}
+        <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
+            <h1 className="text-white text-4xl font-black">Historial de Ventas</h1>
+            
+            <div className="flex items-center gap-4 bg-[#102316] p-2 rounded-xl border border-white/10">
+                <button onClick={() => changeDate(-1)} className="p-2 hover:bg-white/10 rounded-lg text-white">
+                    <span className="material-symbols-outlined">chevron_left</span>
+                </button>
+                <div className="text-center px-4">
+                    <p className="text-secondary text-xs font-bold uppercase">Viendo fecha</p>
+                    <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">calendar_today</span>
+                        <span className="text-white font-bold text-lg">
+                            {selectedDate.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        </span>
+                    </div>
+                </div>
+                <button onClick={() => changeDate(1)} className="p-2 hover:bg-white/10 rounded-lg text-white">
+                    <span className="material-symbols-outlined">chevron_right</span>
+                </button>
+            </div>
 
-      <div className="relative mb-8">
-        <div className="absolute inset-y-0 left-0 flex items-center pl-4 text-secondary">
-          <span className="material-symbols-outlined">search</span>
+            <button 
+                onClick={() => setShowSummaryModal(true)}
+                className="bg-primary text-background-dark font-bold px-6 py-3 rounded-xl hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20"
+            >
+                <span className="material-symbols-outlined">receipt_long</span>
+                Corte del Día
+            </button>
         </div>
-        <input 
-            type="text" 
-            className="w-full bg-[#22492f] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder-secondary focus:ring-2 focus:ring-primary focus:outline-none"
-            placeholder="Buscar por ID de pedido o nombre de cliente"
-        />
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Filters Panel */}
-        <div className="lg:col-span-1 space-y-6">
-            <h3 className="text-white text-lg font-bold">Filtros</h3>
-            <div className="bg-[#102316] border border-white/10 rounded-xl p-4">
-                <div className="mb-6">
-                    <h4 className="text-gray-300 font-semibold mb-3 text-sm">Rango de Fechas</h4>
-                    <div className="flex items-center justify-between mb-4">
-                        <button className="text-white hover:bg-white/10 p-1 rounded-full"><span className="material-symbols-outlined">chevron_left</span></button>
-                        <span className="font-bold text-white">Julio 2024</span>
-                        <button className="text-white hover:bg-white/10 p-1 rounded-full"><span className="material-symbols-outlined">chevron_right</span></button>
-                    </div>
-                    <div className="grid grid-cols-7 gap-1 text-center text-sm">
-                        {['D','L','M','X','J','V','S'].map(d => <span key={d} className="text-secondary font-bold py-2">{d}</span>)}
-                        <span className="text-gray-600 py-2">30</span>
-                        <span className="text-gray-600 py-2">1</span>
-                        <span className="text-white py-2">2</span>
-                        <span className="text-white py-2">3</span>
-                        <span className="text-white py-2">4</span>
-                        <span className="bg-primary text-background-dark rounded-full py-2 font-bold">5</span>
-                        <span className="text-white py-2">6</span>
-                    </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 overflow-hidden">
+            {/* Lista de Ventas (Izquierda) */}
+            <div className="lg:col-span-2 bg-[#102316] border border-white/10 rounded-xl overflow-hidden flex flex-col">
+                <div className="p-4 border-b border-white/10 bg-[#183422] flex justify-between items-center">
+                    <h3 className="font-bold text-white">Transacciones ({orders.length})</h3>
+                    <span className="text-primary font-mono font-bold">Total: ${dailySummary.totalSales.toFixed(2)}</span>
                 </div>
                 
-                <div className="mb-6">
-                     <h4 className="text-gray-300 font-semibold mb-3 text-sm">Estado del Pedido</h4>
-                     <select className="w-full bg-[#22492f] text-white border-none rounded-lg p-2.5">
-                        <option>Todos</option>
-                        <option>Completado</option>
-                        <option>Cancelado</option>
-                     </select>
-                </div>
-
-                <button className="w-full bg-primary text-background-dark font-bold py-3 rounded-lg hover:bg-primary-hover">Aplicar Filtros</button>
-            </div>
-        </div>
-
-        {/* List & Details */}
-        <div className="lg:col-span-2 flex gap-6">
-             <div className="flex-1 bg-[#102316] border border-white/10 rounded-xl overflow-hidden flex flex-col">
-                <table className="w-full text-left">
-                    <thead className="border-b border-white/10 bg-[#183422]">
-                        <tr>
-                            <th className="px-6 py-4 text-sm font-bold text-secondary uppercase">ID Pedido</th>
-                            <th className="px-6 py-4 text-sm font-bold text-secondary uppercase">Cliente</th>
-                            <th className="px-6 py-4 text-sm font-bold text-secondary uppercase text-right">Total</th>
-                            <th className="px-6 py-4 text-sm font-bold text-secondary uppercase text-center">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                        {MOCK_ORDERS.map(order => (
-                            <tr key={order.id} className="hover:bg-white/5 cursor-pointer transition-colors">
-                                <td className="px-6 py-4 text-sm text-secondary font-mono">{order.id}</td>
-                                <td className="px-6 py-4 font-medium text-white">{order.customerName}</td>
-                                <td className="px-6 py-4 font-medium text-white text-right">${order.total.toFixed(2)}</td>
-                                <td className="px-6 py-4 text-center">
-                                    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                        order.status === 'Completado' ? 'bg-green-900 text-green-300' :
-                                        order.status === 'Cancelado' ? 'bg-red-900 text-red-300' :
-                                        'bg-yellow-900 text-yellow-300'
-                                    }`}>
-                                        {order.status}
-                                    </span>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Details Panel (Right side overlay or column) - Simplified for layout */}
-            <div className="hidden xl:block w-80 bg-[#102316] border border-white/10 rounded-xl p-6 h-fit">
-                <div className="flex justify-between items-start mb-6">
-                    <div>
-                        <h3 className="text-white text-lg font-bold">Detalles</h3>
-                        <p className="text-primary font-mono text-sm">#A8B-234</p>
-                    </div>
-                </div>
-                <div className="space-y-4">
-                     <div className="border-b border-white/10 pb-4">
-                        <p className="text-secondary text-xs uppercase font-bold mb-1">Cliente</p>
-                        <p className="text-white font-medium">Carlos Vega</p>
-                        <p className="text-secondary text-sm">carlos.vega@email.com</p>
-                     </div>
-                     <div>
-                        <p className="text-secondary text-xs uppercase font-bold mb-3">Resumen</p>
-                        <ul className="space-y-2">
-                             <li className="flex justify-between text-sm">
-                                <span className="text-white">1x Hamburguesa</span>
-                                <span className="text-white">$12.00</span>
-                             </li>
-                             <li className="flex justify-between text-sm">
-                                <span className="text-white">1x Papas</span>
-                                <span className="text-white">$6.00</span>
-                             </li>
-                        </ul>
-                     </div>
-                     <div className="pt-4 border-t border-white/10 mt-4">
-                        <div className="flex justify-between text-lg font-bold">
-                            <span className="text-white">Total</span>
-                            <span className="text-white">$24.50</span>
+                <div className="flex-1 overflow-y-auto">
+                    {loading ? (
+                        <div className="flex justify-center items-center h-40 text-white">
+                            <span className="material-symbols-outlined animate-spin mr-2">refresh</span> Cargando...
                         </div>
-                     </div>
-                     <button className="w-full bg-primary text-background-dark font-bold py-2 rounded-lg flex items-center justify-center gap-2 mt-4">
-                        <span className="material-symbols-outlined">print</span>
-                        Reimprimir
-                     </button>
+                    ) : orders.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-secondary opacity-50 p-10">
+                            <span className="material-symbols-outlined text-6xl mb-4">event_busy</span>
+                            <p>No hay ventas registradas en esta fecha.</p>
+                        </div>
+                    ) : (
+                        <table className="w-full text-left">
+                            <thead className="text-secondary text-xs uppercase font-bold sticky top-0 bg-[#183422]">
+                                <tr>
+                                    <th className="px-6 py-3">Hora</th>
+                                    <th className="px-6 py-3">Cliente</th>
+                                    <th className="px-6 py-3">Método</th>
+                                    <th className="px-6 py-3 text-right">Total</th>
+                                    <th className="px-6 py-3 text-center">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {orders.map(order => (
+                                    <tr 
+                                        key={order.id} 
+                                        onClick={() => setSelectedOrder(order)}
+                                        className={`cursor-pointer transition-colors ${selectedOrder?.id === order.id ? 'bg-primary/10 border-l-4 border-primary' : 'hover:bg-white/5 border-l-4 border-transparent'}`}
+                                    >
+                                        <td className="px-6 py-4 text-white font-mono text-sm">
+                                            {order.createdAt ? new Date(order.createdAt.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}
+                                        </td>
+                                        <td className="px-6 py-4 text-white font-medium">{order.customerName}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold uppercase ${
+                                                order.paymentMethod === 'card' ? 'text-blue-300 bg-blue-500/10' : 'text-green-300 bg-green-500/10'
+                                            }`}>
+                                                <span className="material-symbols-outlined text-[14px]">
+                                                    {order.paymentMethod === 'card' ? 'credit_card' : 'payments'}
+                                                </span>
+                                                {order.paymentMethod === 'card' ? 'Tarjeta' : 'Efectivo'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-white text-right font-mono font-bold">${order.total?.toFixed(2)}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400 text-xs font-bold">PAGADO</span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
                 </div>
+            </div>
+
+            {/* Detalle de la Venta (Derecha) */}
+            <div className="bg-[#102316] border border-white/10 rounded-xl p-6 h-fit sticky top-6">
+                {selectedOrder ? (
+                    <div className="space-y-6 animate-fade-in">
+                        <div className="flex justify-between items-start border-b border-white/10 pb-4">
+                            <div>
+                                <h3 className="text-white text-xl font-bold">Detalle de Venta</h3>
+                                <p className="text-primary font-mono text-sm">#{selectedOrder.id.slice(-6).toUpperCase()}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-secondary text-xs uppercase font-bold">Fecha</p>
+                                <p className="text-white text-sm">{formatDate(selectedOrder.createdAt)}</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            {selectedOrder.items?.map((item: any, idx: number) => (
+                                <div key={idx} className="flex justify-between text-sm">
+                                    <div className="flex gap-3">
+                                        <span className="font-bold text-primary">{item.quantity}x</span>
+                                        <span className="text-white">{item.name}</span>
+                                    </div>
+                                    <span className="text-white font-mono">${(item.price * item.quantity).toFixed(2)}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="pt-4 border-t border-white/10 space-y-2">
+                            <div className="flex justify-between text-secondary text-sm">
+                                <span>Subtotal</span>
+                                <span>${selectedOrder.subtotal?.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-secondary text-sm">
+                                <span>Impuestos</span>
+                                <span>${selectedOrder.tax?.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-white text-xl font-bold pt-2">
+                                <span>Total Pagado</span>
+                                <span>${selectedOrder.total?.toFixed(2)}</span>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={() => setShowTicketModal(true)}
+                            className="w-full bg-white/10 text-white font-bold py-3 rounded-lg hover:bg-white/20 transition-colors flex items-center justify-center gap-2 border border-white/10"
+                        >
+                            <span className="material-symbols-outlined">print</span>
+                            Reimprimir Ticket
+                        </button>
+                    </div>
+                ) : (
+                    <div className="h-64 flex flex-col items-center justify-center text-secondary opacity-50">
+                        <span className="material-symbols-outlined text-5xl mb-2">receipt</span>
+                        <p>Selecciona una venta para ver detalles</p>
+                    </div>
+                )}
             </div>
         </div>
       </div>
+
+      {/* Modales */}
+      {showTicketModal && selectedOrder && (
+          <TicketModal 
+            order={selectedOrder} 
+            title="REIMPRESIÓN DE TICKET" 
+            onClose={() => setShowTicketModal(false)} 
+          />
+      )}
+
+      {showSummaryModal && (
+          <TicketModal 
+            order={{ createdAt: new Date() }} // Dummy data for header
+            title="CORTE DE CAJA" 
+            onClose={() => setShowSummaryModal(false)} 
+          />
+      )}
     </main>
   );
 };

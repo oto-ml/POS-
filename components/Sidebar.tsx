@@ -10,11 +10,12 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userRole, onLogout }) => {
   
-  // 1. Definimos los items básicos que todos pueden ver
+  // 1. Definimos los items básicos del menú
   const menuItems = [
     { icon: 'receipt_long', label: 'Pedidos (POS)', value: 'POS' },
     { icon: 'restaurant_menu', label: 'Cocina (KDS)', value: 'KITCHEN' },
-    { icon: 'list_alt', label: 'Ordenes', value: 'ORDERS' },
+    // CAMBIO: Ahora mostramos Inventario en lugar de Órdenes
+    { icon: 'inventory_2', label: 'Inventario', value: 'INVENTORY' },
   ];
 
   // 2. Si es ADMIN, agregamos "Historial" a la navegación principal
@@ -28,7 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
         {/* Logo y Título */}
         <div className="flex items-center gap-3 px-2">
            <span className="material-symbols-outlined text-primary text-3xl">point_of_sale</span>
-           <h2 className="text-white text-xl font-bold hidden lg:block">Restaurante UPIICSA</h2>
+           <h2 className="text-white text-xl font-bold hidden lg:block">Restaurante</h2>
         </div>
 
         {/* Navegación Principal Dinámica */}

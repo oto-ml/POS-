@@ -3,7 +3,7 @@ import { Sidebar } from './components/Sidebar';
 import { POSView } from './views/POSView';
 import { PaymentView } from './views/PaymentView';
 import { KitchenView } from './views/KitchenView';
-import { OrdersView } from './views/OrdersView';
+import { InventoryView } from './views/InventoryView';
 import { HistoryView } from './views/HistoryView';
 import { SettingsView } from './views/SettingsView';
 import { HelpView } from './views/HelpView';
@@ -139,7 +139,7 @@ const App: React.FC = () => {
       case 'POS': return <POSView cart={cart} addToCart={addToCart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} clearCart={clearCart} onCheckout={handleCheckout} />;
       case 'PAYMENT': return <PaymentView cart={cart} onBack={() => setCurrentView('POS')} onComplete={handlePaymentComplete} />;
       case 'KITCHEN': return <KitchenView />;
-      case 'ORDERS': return <OrdersView />;
+      case 'INVENTORY': return <InventoryView />;
       case 'HISTORY': return <HistoryView />;
       case 'SETTINGS': return <SettingsView />;
       case 'HELP': return <HelpView />;

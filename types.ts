@@ -29,9 +29,15 @@ export interface Order {
   timestamp: any;
   tableNumber?: number;
   type: 'Dine-in' | 'Takeaway' | 'Delivery';
+  paymentMethod?: 'cash' | 'card';
+  createdAt?: any;
+  subtotal?: number;
+  tax?: number;
+  receivedAmount?: number;
+  change?: number;
+  paymentDetails?: { last4?: string };
 }
 
-// --- IMPORTANTE: Definiciones de Usuario ---
 export type UserRole = 'admin' | 'cashier';
 
 export interface UserProfile {
@@ -41,4 +47,5 @@ export interface UserProfile {
   role: UserRole;
 }
 
-export type ViewState = 'POS' | 'PAYMENT' | 'ORDERS' | 'HISTORY' | 'KITCHEN' | 'SETTINGS' | 'HELP' | 'LOGIN';
+// Vista INVENTORY añadida para la gestión del menú
+export type ViewState = 'POS' | 'PAYMENT' | 'INVENTORY' | 'HISTORY' | 'KITCHEN' | 'SETTINGS' | 'HELP' | 'LOGIN';
