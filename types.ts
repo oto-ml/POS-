@@ -35,6 +35,7 @@ export interface Order {
   type: 'Dine-in' | 'Takeaway' | 'Delivery';
   paymentMethod?: 'cash' | 'card';
   createdAt?: any;
+  updatedAt?: any; // Agregado para el ordenamiento en OrdersView
   subtotal?: number;
   tax?: number;
   receivedAmount?: number;
@@ -51,5 +52,5 @@ export interface UserProfile {
   role: UserRole;
 }
 
-// Actualizamos ViewState para incluir el nuevo módulo de INVENTORY
-export type ViewState = 'POS' | 'PAYMENT' | 'INVENTORY' | 'HISTORY' | 'KITCHEN' | 'SETTINGS' | 'HELP' | 'LOGIN';
+// Actualizamos ViewState para incluir ORDERS
+export type ViewState = 'POS' | 'PAYMENT' | 'INVENTORY' | 'HISTORY' | 'KITCHEN' | 'SETTINGS' | 'HELP' | 'LOGIN' | 'ORDERS';

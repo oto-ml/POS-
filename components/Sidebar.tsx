@@ -15,7 +15,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
   let menuItems: Array<{ icon: string; label: string; value: string }> = [];
 
   if (userRole === 'cook') {
-    // Cocineros solo ven su dashboard (no navegable, pero lo dejamos para consistencia)
+    // Cocineros solo ven su dashboard
     menuItems = [
       { icon: 'restaurant', label: 'Mi Cocina', value: 'KITCHEN' },
     ];
@@ -23,6 +23,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
     // Admin y Cajero
     menuItems = [
       { icon: 'receipt_long', label: 'Pedidos (POS)', value: 'POS' },
+      
+      // NUEVO BOTÓN AGREGADO AQUÍ
+      { icon: 'notifications_active', label: 'Listos para Entregar', value: 'ORDERS' },
+      
       { icon: 'restaurant_menu', label: 'Cocina (KDS)', value: 'KITCHEN' },
       { icon: 'inventory_2', label: 'Inventario', value: 'INVENTORY' },
     ];
@@ -85,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
       {/* Menú Secundario (Inferior) */}
       <div className="flex flex-col gap-1">
         
-        {/* Botón de Ajustes (Visible para todos: admin y cashier) */}
+        {/* Botón de Ajustes (Visible para todos) */}
         <button
             type="button"
             onClick={() => onChangeView('SETTINGS')}

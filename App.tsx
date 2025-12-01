@@ -9,6 +9,7 @@ import { HistoryView } from './views/HistoryView';
 import { SettingsView } from './views/SettingsView';
 import { HelpView } from './views/HelpView';
 import { LoginView } from './views/LoginView';
+import { OrdersView } from './views/OrdersView'; // <--- IMPORTANTE: Importar la nueva vista
 import { CartItem, MenuItem, ViewState, UserProfile } from './types';
 
 // Importaciones de Firebase
@@ -146,9 +147,12 @@ const App: React.FC = () => {
       case 'POS': return <POSView cart={cart} addToCart={addToCart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} clearCart={clearCart} onCheckout={handleCheckout} />;
       case 'PAYMENT': return <PaymentView cart={cart} onBack={() => setCurrentView('POS')} onComplete={handlePaymentComplete} />;
       
-      // LÓGICA CORREGIDA: Si es cocinero muestra su dashboard, si no muestra la vista normal
+      // Lógica de Cocina
       case 'KITCHEN': 
         return user.role === 'cook' ? <CookDashboardView /> : <KitchenView />;
+      
+      // NUEVA RUTA PARA PEDIDOS LISTOS
+      case 'ORDERS': return <OrdersView />;
       
       case 'INVENTORY': return <InventoryView userRole={user?.role} />;
       case 'HISTORY': return <HistoryView />;
