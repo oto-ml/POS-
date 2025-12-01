@@ -6,7 +6,6 @@ import { collection, getDocs } from 'firebase/firestore';
 interface POSViewProps {
   cart: CartItem[];
   addToCart: (item: MenuItem, options?: { extras?: Array<{ id?: string; name: string; price?: number }>; notes?: string; quantity?: number }) => void;
-  // IMPORTANTE: Cambiamos los IDs de number a string o any para compatibilidad con Firebase
   updateQuantity: (itemId: any, delta: number) => void;
   removeFromCart: (itemId: any) => void;
   clearCart: () => void;
@@ -23,17 +22,41 @@ export const POSView: React.FC<POSViewProps> = ({
   const [activeCategory, setActiveCategory] = useState('Todos');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Estados para manejar la carga de datos de Firebase
   const [products, setProducts] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Opciones de extras/salsas (puedes mover a la BD si lo prefieres)
-  const EXTRA_OPTIONS: Array<{ id: string; name: string; price?: number }> = [
-    { id: 'ex1', name: 'Salsa Roja', price: 0.5 },
-    { id: 'ex2', name: 'Salsa Verde', price: 0.5 },
-    { id: 'ex3', name: 'Extra Queso', price: 1.0 },
-    { id: 'ex4', name: 'Extra Pico', price: 0.75 },
-  ];
+  // --- LÓGICA DE PERSONALIZACIÓN DINÁMICA ---
+  // Esta función devuelve las opciones según la categoría del producto
+  const getCategoryOptions = (category: string): Array<{ id: string; name: string; price: number }> => {
+    switch (category) {
+      case 'Platos Fuertes':
+        return [
+          { id: 'pf-ketchup', name: 'Ketchup', price: 0 },
+          { id: 'pf-mostaza', name: 'Mostaza', price: 0 },
+          { id: 'pf-mayonesa', name: 'Mayonesa', price: 0 },
+          { id: 'pf-queso', name: 'Queso', price: 10.0 }, // Precio sugerido
+          { id: 'pf-bbq', name: 'BBQ', price: 5.0 },      // Precio sugerido
+          { id: 'pf-mango', name: 'Mango', price: 5.0 },
+          { id: 'pf-habanero', name: 'Habanero', price: 5.0 },
+          { id: 'pf-lemon', name: 'Lemon Pepper', price: 0 },
+        ];
+      case 'Entradas':
+        return [
+          { id: 'ent-ketchup', name: 'Ketchup', price: 0 },
+          { id: 'ent-quesoliq', name: 'Queso Líquido', price: 15.0 }, // Precio sugerido
+          { id: 'ent-salsa', name: 'Salsa', price: 5.0 },
+        ];
+      case 'Bebidas':
+        return [
+          { id: 'beb-fria', name: 'Fría', price: 0 },
+          { id: 'beb-temp', name: 'Temp. Ambiente', price: 0 },
+        ];
+      case 'Postres':
+        return []; // Sin opciones
+      default:
+        return []; // Por defecto sin opciones
+    }
+  };
 
   // Estado y helpers para el modal de personalización
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -66,44 +89,40 @@ export const POSView: React.FC<POSViewProps> = ({
     setQuantity(1);
   };
 
-  // Categorías fijas (podrías también traerlas de la BD si quisieras)
   const categories = ['Platos Fuertes', 'Entradas', 'Bebidas', 'Postres', 'Todos'];
 
-  // EFECTO: Cargar productos desde Firebase al iniciar
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setIsLoading(true);
         const querySnapshot = await getDocs(collection(db, "products"));
-        
         const productsList = querySnapshot.docs.map(doc => ({
-          id: doc.id, // Usamos el ID generado por Firebase
+          id: doc.id,
           ...doc.data()
         })) as MenuItem[];
-        
         setProducts(productsList);
       } catch (error) {
         console.error("Error conectando con Firebase:", error);
-        alert("Error cargando el menú. Revisa tu conexión.");
+        // alert("Error cargando el menú. Revisa tu conexión."); // Opcional
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchProducts();
   }, []);
 
-  // Lógica de filtrado (ahora usa 'products' en lugar de 'MENU_ITEMS')
   const filteredItems = products.filter(item => {
     const matchesCategory = activeCategory === 'Todos' || item.category === activeCategory;
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
-  // Cálculos del carrito
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity) + (item.extras ? item.extras.reduce((s, ex) => s + (ex.price || 0) * (item.quantity || 1), 0) : 0), 0);
-  const tax = subtotal * 0.16; // IVA 16%
+  const tax = subtotal * 0.16;
   const total = subtotal + tax;
+
+  // Obtenemos las opciones actuales basadas en el ítem seleccionado
+  const currentOptions = selectedItem ? getCategoryOptions(selectedItem.category) : [];
 
   if (isLoading) {
     return (
@@ -124,7 +143,6 @@ export const POSView: React.FC<POSViewProps> = ({
         <header className="flex items-center justify-between border-b border-[#22492f]/50 p-6">
           <div className="flex flex-col">
             <h1 className="text-white text-3xl font-black tracking-[-0.033em]">Selección de Artículos</h1>
-            <p className="text-secondary text-base font-normal"></p>
           </div>
           <div className="flex items-center gap-4">
             <div 
@@ -138,7 +156,7 @@ export const POSView: React.FC<POSViewProps> = ({
           </div>
         </header>
 
-        {/* Contenido: Buscador y Tabs */}
+        {/* Contenido */}
         <div className="flex flex-col flex-1 overflow-hidden">
             <div className="px-6 py-4 space-y-4">
                 {/* Buscador */}
@@ -177,12 +195,11 @@ export const POSView: React.FC<POSViewProps> = ({
             <div className="flex-1 overflow-y-auto px-6 pb-6">
                 {filteredItems.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-40 text-secondary opacity-70">
-                    <p>No se encontraron productos en esta categoría.</p>
+                    <p>No se encontraron productos.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                         {filteredItems.map(item => {
-                          // 1. Calculamos el stock de forma segura
                           const currentStock = item.stock ?? 0;
                           const isOutOfStock = currentStock <= 0;
 
@@ -190,7 +207,6 @@ export const POSView: React.FC<POSViewProps> = ({
                             <div 
                               key={item.id}
                               onClick={() => {
-                                // 2. Bloquear el click si no hay stock
                                 if (isOutOfStock) return;
                                 openCustomize(item);
                               }}
@@ -205,7 +221,6 @@ export const POSView: React.FC<POSViewProps> = ({
                                     style={{ backgroundImage: `url('${item.image || 'https://placehold.co/200x200/102316/FFF?text=Sin+Imagen'}')` }}
                                 ></div>
                                 
-                                {/* 3. Indicador de Agotado mejorado */}
                                 {isOutOfStock && (
                                   <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg pointer-events-none z-10">
                                     <span className="bg-red-600 text-white px-3 py-1 rounded font-bold border border-red-400 shadow-lg transform -rotate-12">
@@ -218,7 +233,6 @@ export const POSView: React.FC<POSViewProps> = ({
                                     <p className="text-base font-bold text-white leading-tight line-clamp-2">{item.name}</p>
                                     <div className="flex justify-between items-center mt-1">
                                       <p className="text-sm text-primary font-mono">${item.price.toFixed(2)}</p>
-                                      {/* Mostrar aviso de stock bajo si no está agotado */}
                                       {!isOutOfStock && currentStock < 10 && (
                                          <span className="text-[10px] text-orange-400 font-bold">¡Solo {currentStock}!</span>
                                       )}
@@ -235,67 +249,98 @@ export const POSView: React.FC<POSViewProps> = ({
 
       {/* Modal de personalización */}
       {selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md bg-[#183422] rounded-xl p-6">
-            <h3 className="text-xl font-bold mb-2">Personalizar: {selectedItem.name}</h3>
-            <p className="text-sm text-secondary mb-4">Selecciona salsas/extras y añade notas</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-[#183422] rounded-xl p-6 shadow-2xl border border-white/10">
+            <h3 className="text-xl font-bold mb-1 text-white">Personalizar: {selectedItem.name}</h3>
+            <p className="text-xs text-primary mb-4 font-bold uppercase tracking-wider">{selectedItem.category}</p>
 
-            <div className="mb-3">
-              <label className="block text-sm text-white font-bold mb-2">Extras</label>
-              <div className="grid grid-cols-2 gap-2">
-                {EXTRA_OPTIONS.map(ex => (
-                  <label key={ex.id} className="flex items-center gap-2 text-white">
-                    <input type="checkbox" checked={selectedExtras.some(e => e.id === ex.id)} onChange={() => toggleExtra(ex)} />
-                    <span className="text-sm">{ex.name} {ex.price ? `(+$${ex.price.toFixed(2)})` : ''}</span>
-                  </label>
-                ))}
-              </div>
+            {/* Renderizar Opciones SOLAMENTE si existen para esta categoría */}
+            {currentOptions.length > 0 && (
+                <div className="mb-4 bg-[#102216] p-3 rounded-lg border border-white/5">
+                  <label className="block text-sm text-secondary font-bold mb-3 uppercase text-xs">Opciones y Extras</label>
+                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                    {currentOptions.map(ex => (
+                      <label key={ex.id} className="flex items-center gap-3 text-white p-2 hover:bg-white/5 rounded cursor-pointer transition-colors">
+                        <div className={`size-5 rounded border flex items-center justify-center transition-colors ${
+                            selectedExtras.some(e => e.id === ex.id) ? 'bg-primary border-primary' : 'border-gray-500'
+                        }`}>
+                            {selectedExtras.some(e => e.id === ex.id) && (
+                                <span className="material-symbols-outlined text-black text-sm font-bold">check</span>
+                            )}
+                        </div>
+                        <input 
+                            type="checkbox" 
+                            className="hidden"
+                            checked={selectedExtras.some(e => e.id === ex.id)} 
+                            onChange={() => toggleExtra(ex)} 
+                        />
+                        <span className="text-sm select-none">{ex.name} {ex.price > 0 ? `(+$${ex.price.toFixed(2)})` : ''}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+            )}
+
+            <div className="mb-4">
+              <label className="block text-xs text-secondary font-bold uppercase mb-2">Notas de Cocina</label>
+              <textarea 
+                value={notes} 
+                onChange={(e) => setNotes(e.target.value)} 
+                className="w-full bg-[#102216] rounded-lg p-3 text-white border border-white/10 focus:border-primary focus:outline-none text-sm resize-none" 
+                placeholder="Ej: Sin cebolla, extra picante, alergia a..." 
+                rows={2}
+              />
             </div>
 
-            <div className="mb-3">
-              <label className="block text-sm text-white font-bold mb-2">Notas</label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full bg-[#102216] rounded p-2 text-white" placeholder="Ej: Sin cebolla, extra picante..." />
-            </div>
-
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center justify-between gap-4 mb-6 bg-[#102216] p-3 rounded-lg border border-white/5">
               <label className="text-sm text-white font-bold">Cantidad</label>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="px-3 py-1 bg-[#102216] rounded">-</button>
-                <span className="px-3 text-white font-bold">{quantity}</span>
-                <button onClick={() => setQuantity(q => {
-                  // Respetar el stock máximo al incrementar cantidad
-                  const max = selectedItem?.stock ?? 9999;
-                  return Math.min(max, q + 1);
-                })} className="px-3 py-1 bg-[#102216] rounded">+</button>
+              <div className="flex items-center gap-1 bg-[#22492f] rounded-lg p-1">
+                <button 
+                    onClick={() => setQuantity(q => Math.max(1, q - 1))} 
+                    className="size-8 flex items-center justify-center text-white hover:bg-white/10 rounded transition-colors"
+                >
+                    <span className="material-symbols-outlined text-lg">remove</span>
+                </button>
+                <span className="w-8 text-center text-white font-bold">{quantity}</span>
+                <button 
+                    onClick={() => setQuantity(q => {
+                        const max = selectedItem?.stock ?? 9999;
+                        return Math.min(max, q + 1);
+                    })} 
+                    className="size-8 flex items-center justify-center text-white hover:bg-white/10 rounded transition-colors"
+                >
+                    <span className="material-symbols-outlined text-lg">add</span>
+                </button>
               </div>
             </div>
 
-            {/* Mostrar stock disponible si viene en el producto */}
             {selectedItem && typeof (selectedItem as any).stock !== 'undefined' && (
-              <div className="mb-3">
+              <div className="mb-4 text-right">
                 {(selectedItem as any).stock > 0 ? (
-                  <p className="text-sm text-secondary">Stock disponible: {(selectedItem as any).stock}</p>
+                  <p className="text-xs text-secondary">Stock disponible: {(selectedItem as any).stock}</p>
                 ) : (
-                  <p className="text-sm text-red-400 font-bold">Agotado</p>
+                  <p className="text-xs text-red-400 font-bold">Agotado</p>
                 )}
               </div>
             )}
 
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-3 pt-2 border-t border-white/10">
               <button 
                 onClick={() => { setSelectedItem(null); setSelectedExtras([]); setNotes(''); setQuantity(1); }} 
-                className="px-4 py-2 bg-transparent text-white border rounded"
+                className="px-4 py-3 bg-transparent text-gray-300 font-bold hover:text-white transition-colors"
               >
                 Cancelar
               </button>
               
               <button 
                 onClick={() => { handleConfirmAdd(); }} 
-                // 4. Deshabilitar botón si el stock es 0 o menor
                 disabled={!selectedItem || (selectedItem.stock ?? 0) <= 0} 
-                className="px-4 py-2 bg-primary text-background-dark rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-3 bg-primary text-background-dark rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-hover transition-colors shadow-lg shadow-primary/20 flex items-center gap-2"
               >
-                {(!selectedItem || (selectedItem.stock ?? 0) > 0) ? 'Agregar al pedido' : 'Sin Stock'}
+                <span>Agregar</span>
+                <span className="bg-black/10 px-2 py-0.5 rounded text-xs">
+                    ${((selectedItem.price * quantity) + (selectedExtras.reduce((acc, ex) => acc + ex.price, 0) * quantity)).toFixed(2)}
+                </span>
               </button>
             </div>
           </div>
@@ -331,7 +376,12 @@ export const POSView: React.FC<POSViewProps> = ({
                         />
                         <div className="flex-1 min-w-0">
                             <p className="font-bold text-white truncate">{item.name}</p>
-                            <p className="text-xs text-secondary italic">{item.notes || 'Sin notas'}</p>
+                            <div className="text-xs text-secondary space-y-0.5">
+                                {item.extras && item.extras.length > 0 && (
+                                    <p className="truncate">+ {item.extras.map(e => e.name).join(', ')}</p>
+                                )}
+                                {item.notes && <p className="italic text-gray-400 truncate">"{item.notes}"</p>}
+                            </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
                              <div className="flex items-center gap-2 bg-[#22492f] rounded-lg p-0.5">
@@ -345,7 +395,9 @@ export const POSView: React.FC<POSViewProps> = ({
                                     className="size-7 flex items-center justify-center text-white hover:bg-white/10 rounded font-bold"
                                 >+</button>
                             </div>
-                            <p className="font-bold text-white font-mono">${(item.price * item.quantity).toFixed(2)}</p>
+                            <p className="font-bold text-white font-mono">
+                                ${((item.price * item.quantity) + (item.extras ? item.extras.reduce((s, ex) => s + (ex.price || 0) * item.quantity, 0) : 0)).toFixed(2)}
+                            </p>
                         </div>
                     </div>
                 ))
