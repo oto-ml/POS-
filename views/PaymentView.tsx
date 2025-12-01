@@ -168,7 +168,7 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                     </button>
                     <h1 className="text-white text-4xl font-black tracking-[-0.033em]">Procesar Pago</h1>
                 </div>
-                <p className="text-secondary text-base font-normal ml-14">Nueva Orden • Mesa 5</p>
+                <p className="text-secondary text-base font-normal ml-14">Nueva Orden</p>
             </div>
         </div>
 

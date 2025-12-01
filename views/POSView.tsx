@@ -5,7 +5,7 @@ import { collection, getDocs } from 'firebase/firestore';
 
 interface POSViewProps {
   cart: CartItem[];
-  addToCart: (item: MenuItem) => void;
+  addToCart: (item: MenuItem, options?: { extras?: Array<{ id?: string; name: string; price?: number }>; notes?: string; quantity?: number }) => void;
   // IMPORTANTE: Cambiamos los IDs de number a string o any para compatibilidad con Firebase
   updateQuantity: (itemId: any, delta: number) => void;
   removeFromCart: (itemId: any) => void;
@@ -26,6 +26,45 @@ export const POSView: React.FC<POSViewProps> = ({
   // Estados para manejar la carga de datos de Firebase
   const [products, setProducts] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Opciones de extras/salsas (puedes mover a la BD si lo prefieres)
+  const EXTRA_OPTIONS: Array<{ id: string; name: string; price?: number }> = [
+    { id: 'ex1', name: 'Salsa Roja', price: 0.5 },
+    { id: 'ex2', name: 'Salsa Verde', price: 0.5 },
+    { id: 'ex3', name: 'Extra Queso', price: 1.0 },
+    { id: 'ex4', name: 'Extra Pico', price: 0.75 },
+  ];
+
+  // Estado y helpers para el modal de personalización
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [selectedExtras, setSelectedExtras] = useState<Array<{ id?: string; name: string; price?: number }>>([]);
+  const [notes, setNotes] = useState('');
+  const [quantity, setQuantity] = useState(1);
+
+  const openCustomize = (item: MenuItem) => {
+    setSelectedItem(item);
+    setSelectedExtras([]);
+    setNotes('');
+    setQuantity(1);
+  };
+
+  const toggleExtra = (ex: { id?: string; name: string; price?: number }) => {
+    setSelectedExtras(prev => {
+      if (prev.some(p => p.id === ex.id)) {
+        return prev.filter(p => p.id !== ex.id);
+      }
+      return [...prev, ex];
+    });
+  };
+
+  const handleConfirmAdd = () => {
+    if (!selectedItem) return;
+    addToCart(selectedItem, { extras: selectedExtras, notes, quantity });
+    setSelectedItem(null);
+    setSelectedExtras([]);
+    setNotes('');
+    setQuantity(1);
+  };
 
   // Categorías fijas (podrías también traerlas de la BD si quisieras)
   const categories = ['Platos Fuertes', 'Entradas', 'Bebidas', 'Postres', 'Todos'];
@@ -62,7 +101,7 @@ export const POSView: React.FC<POSViewProps> = ({
   });
 
   // Cálculos del carrito
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity) + (item.extras ? item.extras.reduce((s, ex) => s + (ex.price || 0) * (item.quantity || 1), 0) : 0), 0);
   const tax = subtotal * 0.16; // IVA 16%
   const total = subtotal + tax;
 
@@ -142,16 +181,27 @@ export const POSView: React.FC<POSViewProps> = ({
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {filteredItems.map(item => (
+                        {filteredItems.map(item => (
                           <div 
-                              key={item.id}
-                              onClick={() => addToCart(item)}
-                              className="flex flex-col gap-3 rounded-xl bg-surface-dark p-3 transition-transform hover:scale-[1.02] cursor-pointer hover:bg-[#22492f] border border-transparent hover:border-primary/30"
+                            key={item.id}
+                            onClick={() => {
+                              // Si el producto está agotado, no abrir el modal
+                              if ((item as any).stock === 0) return;
+                              // Abrir modal para personalizar antes de agregar
+                              openCustomize(item);
+                            }}
+                              className={`relative flex flex-col gap-3 rounded-xl bg-surface-dark p-3 transition-transform hover:scale-[1.02] ${((item as any).stock === 0) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-[#22492f] border border-transparent hover:border-primary/30'}`}
                           >
                               <div 
                                   className="aspect-square w-full rounded-lg bg-cover bg-center bg-gray-700" 
                                   style={{ backgroundImage: `url('${item.image || 'https://placehold.co/200x200/102316/FFF?text=Sin+Imagen'}')` }}
                               ></div>
+                              {/* Indicador de agotado */}
+                              {(item as any).stock === 0 && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg pointer-events-none">
+                                  <span className="bg-red-600 text-white px-3 py-1 rounded font-bold">Agotado</span>
+                                </div>
+                              )}
                               <div className="flex flex-col">
                                   <p className="text-base font-bold text-white leading-tight line-clamp-2">{item.name}</p>
                                   <p className="text-sm text-primary mt-1 font-mono">${item.price.toFixed(2)}</p>
@@ -163,6 +213,61 @@ export const POSView: React.FC<POSViewProps> = ({
             </div>
         </div>
       </div>
+
+      {/* Modal de personalización */}
+      {selectedItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md bg-[#183422] rounded-xl p-6">
+            <h3 className="text-xl font-bold mb-2">Personalizar: {selectedItem.name}</h3>
+            <p className="text-sm text-secondary mb-4">Selecciona salsas/extras y añade notas</p>
+
+            <div className="mb-3">
+              <label className="block text-sm text-white font-bold mb-2">Extras</label>
+              <div className="grid grid-cols-2 gap-2">
+                {EXTRA_OPTIONS.map(ex => (
+                  <label key={ex.id} className="flex items-center gap-2 text-white">
+                    <input type="checkbox" checked={selectedExtras.some(e => e.id === ex.id)} onChange={() => toggleExtra(ex)} />
+                    <span className="text-sm">{ex.name} {ex.price ? `(+$${ex.price.toFixed(2)})` : ''}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <label className="block text-sm text-white font-bold mb-2">Notas</label>
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full bg-[#102216] rounded p-2 text-white" placeholder="Ej: Sin cebolla, extra picante..." />
+            </div>
+
+            <div className="flex items-center gap-4 mb-4">
+              <label className="text-sm text-white font-bold">Cantidad</label>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="px-3 py-1 bg-[#102216] rounded">-</button>
+                <span className="px-3 text-white font-bold">{quantity}</span>
+                <button onClick={() => setQuantity(q => {
+                  const max = selectedItem?.stock ?? 9999;
+                  return Math.min(max, q + 1);
+                })} className="px-3 py-1 bg-[#102216] rounded">+</button>
+              </div>
+            </div>
+
+            {/* Mostrar stock disponible si viene en el producto */}
+            {selectedItem && typeof (selectedItem as any).stock !== 'undefined' && (
+              <div className="mb-3">
+                {(selectedItem as any).stock > 0 ? (
+                  <p className="text-sm text-secondary">Stock disponible: {(selectedItem as any).stock}</p>
+                ) : (
+                  <p className="text-sm text-red-400 font-bold">Agotado</p>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setSelectedItem(null); setSelectedExtras([]); setNotes(''); setQuantity(1); }} className="px-4 py-2 bg-transparent text-white border rounded">Cancelar</button>
+              <button onClick={() => { handleConfirmAdd(); }} disabled={selectedItem ? ((selectedItem as any).stock === 0) : false} className="px-4 py-2 bg-primary text-background-dark rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed">Agregar al pedido</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Panel Derecho: Carrito Actual */}
       <div className="hidden lg:flex w-[400px] flex-col border-l border-[#22492f]/50 bg-[#142d1c]">

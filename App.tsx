@@ -84,13 +84,27 @@ const App: React.FC = () => {
   };
 
   // --- LÓGICA DEL CARRITO ---
-  const addToCart = (item: MenuItem) => {
+  // Ahora addToCart acepta opciones: extras, notes y quantity
+  const addToCart = (item: MenuItem, options?: { extras?: Array<{ id?: string; name: string; price?: number }>; notes?: string; quantity?: number }) => {
+    const quantityToAdd = options?.quantity ?? 1;
     setCart(prev => {
-      const existing = prev.find(i => i.id === item.id);
-      if (existing) {
-        return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+      // Si existe un item con mismas id y mismas extras/notes, sumar cantidad
+      const matchIndex = prev.findIndex(i => {
+        if (i.id !== item.id) return false;
+        const aExtras = JSON.stringify((i as any).extras || []);
+        const bExtras = JSON.stringify(options?.extras || []);
+        const aNotes = (i as any).notes || '';
+        const bNotes = options?.notes || '';
+        return aExtras === bExtras && aNotes === bNotes;
+      });
+
+      if (matchIndex !== -1) {
+        const updated = [...prev];
+        updated[matchIndex] = { ...updated[matchIndex], quantity: updated[matchIndex].quantity + quantityToAdd } as any;
+        return updated;
       }
-      return [...prev, { ...item, quantity: 1 }];
+
+      return [...prev, { ...item, quantity: quantityToAdd, notes: options?.notes, extras: options?.extras } as any];
     });
   };
 

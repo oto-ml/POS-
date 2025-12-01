@@ -12,6 +12,7 @@ export interface MenuItem {
 export interface CartItem extends MenuItem {
   quantity: number;
   notes?: string;
+  extras?: Array<{ id?: string; name: string; price?: number }>;
 }
 
 export enum OrderStatus {
