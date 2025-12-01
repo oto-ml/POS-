@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { auth, db } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 
 interface LoginViewProps {
@@ -12,6 +12,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showResetForm, setShowResetForm] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetMessage, setResetMessage] = useState('');
+  const [resetError, setResetError] = useState('');
 
   // --- FUNCIÓN TEMPORAL PARA CREAR CUENTAS INICIALES ---
   const seedUsers = async () => {
@@ -69,6 +73,42 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     }
   };
 
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    setResetMessage('');
+    setIsLoading(true);
+
+    try {
+      if (!resetEmail) {
+        setResetError('Ingresa tu correo electrónico');
+        setIsLoading(false);
+        return;
+      }
+
+      await sendPasswordResetEmail(auth, resetEmail);
+      setResetMessage(`✅ Se envió un correo a ${resetEmail} con instrucciones para resetear tu contraseña. Revisa tu bandeja de entrada (y spam).`);
+      setResetEmail('');
+      
+      // Limpiar mensaje después de 8 segundos
+      setTimeout(() => {
+        setResetMessage('');
+        setShowResetForm(false);
+      }, 8000);
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/user-not-found') {
+        setResetError('No hay cuenta asociada a este correo.');
+      } else if (err.code === 'auth/invalid-email') {
+        setResetError('El correo ingresado no es válido.');
+      } else {
+        setResetError('Error al enviar el correo. Intenta más tarde.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen w-full bg-[#0d1c12] flex items-center justify-center p-4 relative overflow-hidden">
         <div className="absolute inset-0 opacity-5 pointer-events-none" 
@@ -82,11 +122,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                         <path d="M36.7273 44C33.9891 44 31.6043 39.8386 30.3636 33.69C29.123 39.8386 26.7382 44 24 44C21.2618 44 18.877 39.8386 17.6364 33.69C16.3957 39.8386 14.0109 44 11.2727 44C7.25611 44 4 35.0457 4 24C4 12.9543 7.25611 4 11.2727 4C14.0109 4 16.3957 8.16144 17.6364 14.31C18.877 8.16144 21.2618 4 24 4C26.7382 4 29.123 8.16144 30.3636 14.31C31.6043 8.16144 33.9891 4 36.7273 4C40.7439 4 44 12.9543 44 24C44 35.0457 40.7439 44 36.7273 44Z" fill="currentColor"></path>
                     </svg>
                 </div>
-                <h1 className="text-white text-3xl font-black tracking-tight">Acceso POS</h1>
-                <p className="text-secondary mt-2">Ingresa tus credenciales</p>
+                <h1 className="text-white text-3xl font-black tracking-tight">
+                  {showResetForm ? 'Recuperar Contraseña' : 'Acceso POS'}
+                </h1>
+                <p className="text-secondary mt-2">
+                  {showResetForm ? 'Ingresa tu correo para resetear tu contraseña' : 'Ingresa tus credenciales'}
+                </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Formulario de Login */}
+            {!showResetForm ? (
+              <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
                     <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
                         <span className="material-symbols-outlined text-lg">error</span>
@@ -123,7 +169,68 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 >
                     {isLoading ? 'Verificando...' : 'Iniciar Sesión'}
                 </button>
-            </form>
+
+                <button
+                    type="button"
+                    onClick={() => setShowResetForm(true)}
+                    className="w-full text-primary hover:text-primary-hover text-sm font-bold py-2 transition-colors"
+                >
+                    ¿Olvidaste tu contraseña?
+                </button>
+              </form>
+            ) : (
+              /* Formulario de Reset */
+              <form onSubmit={handlePasswordReset} className="space-y-6">
+                {resetMessage && (
+                    <div className="bg-green-500/10 border border-green-500/50 text-green-400 px-4 py-3 rounded-xl text-sm flex items-start gap-2">
+                        <span className="material-symbols-outlined text-lg shrink-0">check_circle</span>
+                        <p>{resetMessage}</p>
+                    </div>
+                )}
+
+                {resetError && (
+                    <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+                        <span className="material-symbols-outlined text-lg">error</span>
+                        {resetError}
+                    </div>
+                )}
+
+                <div>
+                    <label className="block text-white text-sm font-bold mb-2">Correo Electrónico</label>
+                    <input 
+                        type="email" 
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        className="w-full bg-[#102216] border border-white/10 rounded-xl py-3 px-4 text-white focus:ring-2 focus:ring-primary focus:outline-none"
+                        placeholder="usuario@restaurante.com"
+                    />
+                    <p className="text-gray-400 text-xs mt-2">
+                        Se enviará un correo con un enlace para resetear tu contraseña.
+                    </p>
+                </div>
+
+                <button 
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-primary text-background-dark font-bold text-lg py-4 rounded-xl hover:bg-primary-hover transition-all disabled:opacity-70"
+                >
+                    {isLoading ? 'Enviando...' : 'Enviar Correo de Recuperación'}
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                      setShowResetForm(false);
+                      setResetEmail('');
+                      setResetMessage('');
+                      setResetError('');
+                    }}
+                    className="w-full text-secondary hover:text-white text-sm font-bold py-2 transition-colors"
+                >
+                    Volver al Login
+                </button>
+              </form>
+            )}
         </div>
     </div>
   );

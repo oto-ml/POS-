@@ -1,26 +1,36 @@
 import React from 'react';
-import { ViewState, UserRole } from '../types';
+import { ViewState, UserRole, UserProfile } from '../types';
 
 interface SidebarProps {
   currentView: ViewState;
   onChangeView: (view: ViewState) => void;
   userRole?: UserRole; // Rol del usuario (admin o cashier)
+  user?: UserProfile; // Datos del usuario autenticado
   onLogout: () => void; // Función para cerrar sesión
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userRole, onLogout }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userRole, user, onLogout }) => {
   
-  // 1. Definimos los items básicos del menú
-  const menuItems = [
-    { icon: 'receipt_long', label: 'Pedidos (POS)', value: 'POS' },
-    { icon: 'restaurant_menu', label: 'Cocina (KDS)', value: 'KITCHEN' },
-    // CAMBIO: Ahora mostramos Inventario en lugar de Órdenes
-    { icon: 'inventory_2', label: 'Inventario', value: 'INVENTORY' },
-  ];
+  // Definimos los items del menú según el rol
+  let menuItems: Array<{ icon: string; label: string; value: string }> = [];
 
-  // 2. Si es ADMIN, agregamos "Historial" a la navegación principal
-  if (userRole === 'admin') {
+  if (userRole === 'cook') {
+    // Cocineros solo ven su dashboard (no navegable, pero lo dejamos para consistencia)
+    menuItems = [
+      { icon: 'restaurant', label: 'Mi Cocina', value: 'KITCHEN' },
+    ];
+  } else {
+    // Admin y Cajero
+    menuItems = [
+      { icon: 'receipt_long', label: 'Pedidos (POS)', value: 'POS' },
+      { icon: 'restaurant_menu', label: 'Cocina (KDS)', value: 'KITCHEN' },
+      { icon: 'inventory_2', label: 'Inventario', value: 'INVENTORY' },
+    ];
+
+    // Si es ADMIN, agregamos "Historial"
+    if (userRole === 'admin') {
       menuItems.push({ icon: 'history', label: 'Historial', value: 'HISTORY' });
+    }
   }
 
   return (
@@ -31,6 +41,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
            <span className="material-symbols-outlined text-primary text-3xl">point_of_sale</span>
            <h2 className="text-white text-xl font-bold hidden lg:block">Restaurante</h2>
         </div>
+
+        {/* Información del Usuario (Solo en modo expandido) */}
+        {user && (
+          <div className="hidden lg:flex flex-col gap-2 rounded-lg bg-[#22492f]/30 p-3 border border-white/10">
+            <div className="flex items-center gap-2">
+              <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+                {user.name?.charAt(0).toUpperCase() || '?'}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <p className="text-white text-sm font-semibold truncate">{user.name}</p>
+                <p className="text-secondary text-xs truncate">{user.email}</p>
+              </div>
+            </div>
+            <div className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-md text-center font-medium">
+              {user.role === 'admin' ? '👑 Administrador' : user.role === 'cook' ? '👨‍🍳 Cocinero' : '💼 Cajero'}
+            </div>
+          </div>
+        )}
 
         {/* Navegación Principal Dinámica */}
         <nav className="flex flex-col gap-2">
@@ -57,19 +85,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
       {/* Menú Secundario (Inferior) */}
       <div className="flex flex-col gap-1">
         
-        {/* Solo ADMIN ve el botón de Ajustes */}
-        {userRole === 'admin' && (
-            <button
-                type="button"
-                onClick={() => onChangeView('SETTINGS')}
-                className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
-                    currentView === 'SETTINGS' ? 'bg-[#22492f] text-white' : 'text-secondary hover:bg-[#22492f]/50 hover:text-white'
-                }`}
-            >
-                <span className="material-symbols-outlined text-2xl">settings</span>
-                <p className="text-sm font-medium hidden lg:block">Ajustes</p>
-            </button>
-        )}
+        {/* Botón de Ajustes (Visible para todos: admin y cashier) */}
+        <button
+            type="button"
+            onClick={() => onChangeView('SETTINGS')}
+            className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+                currentView === 'SETTINGS' ? 'bg-[#22492f] text-white' : 'text-secondary hover:bg-[#22492f]/50 hover:text-white'
+            }`}
+        >
+            <span className="material-symbols-outlined text-2xl">settings</span>
+            <p className="text-sm font-medium hidden lg:block">Ajustes</p>
+        </button>
         
         {/* Botón de Ayuda (Visible para todos) */}
         <button

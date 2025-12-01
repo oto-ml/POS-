@@ -41,7 +41,7 @@ export interface Order {
   paymentDetails?: { last4?: string };
 }
 
-export type UserRole = 'admin' | 'cashier';
+export type UserRole = 'admin' | 'cashier' | 'cook';
 
 export interface UserProfile {
   uid: string;

@@ -3,6 +3,7 @@ import { Sidebar } from './components/Sidebar';
 import { POSView } from './views/POSView';
 import { PaymentView } from './views/PaymentView';
 import { KitchenView } from './views/KitchenView';
+import { CookDashboardView } from './views/CookDashboardView';
 import { InventoryView } from './views/InventoryView';
 import { HistoryView } from './views/HistoryView';
 import { SettingsView } from './views/SettingsView';
@@ -134,6 +135,22 @@ const App: React.FC = () => {
     return <LoginView onLogin={handleLogin} />;
   }
 
+  // Si es cocinero, lo redirigimos a su vista especial
+  if (user.role === 'cook') {
+    return (
+      <div className="flex h-screen w-full bg-background-dark text-white font-display overflow-hidden">
+        <Sidebar 
+          currentView={currentView} 
+          onChangeView={setCurrentView} 
+          userRole={user.role}
+          user={user}
+          onLogout={handleLogout} 
+        />
+        <CookDashboardView />
+      </div>
+    );
+  }
+
   const renderContent = () => {
     switch (currentView) {
       case 'POS': return <POSView cart={cart} addToCart={addToCart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} clearCart={clearCart} onCheckout={handleCheckout} />;
@@ -141,7 +158,7 @@ const App: React.FC = () => {
       case 'KITCHEN': return <KitchenView />;
       case 'INVENTORY': return <InventoryView userRole={user?.role} />;
       case 'HISTORY': return <HistoryView />;
-      case 'SETTINGS': return <SettingsView />;
+      case 'SETTINGS': return <SettingsView userRole={user?.role} />;
       case 'HELP': return <HelpView />;
       default: return null;
     }
@@ -152,7 +169,8 @@ const App: React.FC = () => {
       <Sidebar 
         currentView={currentView} 
         onChangeView={setCurrentView} 
-        userRole={user.role} 
+        userRole={user.role}
+        user={user}
         onLogout={handleLogout} 
       />
       {renderContent()}
