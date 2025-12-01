@@ -31,6 +31,9 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
   const isCashValid = parseFloat(receivedAmount || '0') >= total;
   const isCardValid = cardNumber.length >= 16 && cardExpiry.length >= 4 && cardCvv.length >= 3;
 
+  // Denominaciones comunes
+  const DENOMINATIONS = [20, 50, 100, 200, 500, 1000];
+
   const handlePayment = async () => {
     if (cart.length === 0) return;
 
@@ -45,7 +48,7 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
       const batch = writeBatch(db);
 
       // 1. Preparar datos del pedido
-      const newOrderRef = doc(collection(db, "orders")); // Creamos referencia para obtener ID
+      const newOrderRef = doc(collection(db, "orders"));
       const orderData = {
         customerName: "Cliente Mostrador",
         items: cart,
@@ -62,21 +65,17 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
         receivedAmount: paymentMethod === 'cash' ? parseFloat(receivedAmount) : total
       };
 
-      // Agregamos la creación del pedido al lote
       batch.set(newOrderRef, orderData);
 
       // 2. Restar stock del inventario
       cart.forEach((item) => {
           const productRef = doc(db, "products", item.id);
-          // Usamos 'increment(-cantidad)' para restar de forma atómica y segura
           batch.update(productRef, {
               stock: increment(-item.quantity)
           });
       });
 
-      // 3. Ejecutar todas las operaciones juntas
       await batch.commit();
-      // ----------------------------------------------
       
       setLastOrderDetails({ ...orderData, id: newOrderRef.id, date: new Date() });
       setShowTicket(true);
@@ -226,9 +225,30 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                             <div className="space-y-6 animate-fade-in">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">Monto Recibido</label>
+                                    
+                                    {/* Botones de Denominación Rápida (Grid de 3 para que se vea limpio sin el botón 'Exacto') */}
+                                    <div className="grid grid-cols-3 gap-2 mb-3">
+                                        {DENOMINATIONS.map(amount => (
+                                            <button 
+                                                key={amount}
+                                                onClick={() => setReceivedAmount(amount.toString())}
+                                                className="bg-[#22492f] text-white hover:bg-white/10 border border-white/10 font-bold py-3 rounded-lg transition-colors"
+                                            >
+                                                ${amount}
+                                            </button>
+                                        ))}
+                                    </div>
+
                                     <div className="relative">
                                         <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500 text-lg">$</span>
-                                        <input className="w-full pl-8 pr-4 py-4 rounded-lg bg-[#22492f]/40 border border-white/10 focus:ring-primary focus:border-primary text-white text-2xl font-mono font-bold" type="number" placeholder="0.00" value={receivedAmount} onChange={(e) => setReceivedAmount(e.target.value)} autoFocus />
+                                        <input 
+                                            className="w-full pl-8 pr-4 py-4 rounded-lg bg-[#22492f]/40 border border-white/10 focus:ring-primary focus:border-primary text-white text-2xl font-mono font-bold placeholder-gray-600" 
+                                            type="number" 
+                                            placeholder="Ingresar cantidad manual..." 
+                                            value={receivedAmount} 
+                                            onChange={(e) => setReceivedAmount(e.target.value)} 
+                                            autoFocus 
+                                        />
                                     </div>
                                 </div>
                                 <div className="bg-[#22492f] p-4 rounded-xl flex justify-between items-center border border-primary/20">
