@@ -14,6 +14,9 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
   const [showTicket, setShowTicket] = useState(false);
   const [lastOrderDetails, setLastOrderDetails] = useState<any>(null);
   
+  // ESTADO NUEVO: Nombre del cliente
+  const [customerName, setCustomerName] = useState('');
+
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [receivedAmount, setReceivedAmount] = useState('');
 
@@ -36,7 +39,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
       
       // Simulación de espera de la terminal bancaria
       if (paymentMethod === 'card') {
-          // Aquí es donde en un caso real te conectarías a la API de la terminal (ej. Stripe Terminal, Clip, etc.)
           await new Promise(resolve => setTimeout(resolve, 3000)); // 3 segundos de "procesando"
       }
 
@@ -45,18 +47,21 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
 
       // 1. Preparar datos del pedido
       const newOrderRef = doc(collection(db, "orders"));
+      
+      // CAMBIO: Usamos el nombre ingresado o un default
+      const finalCustomerName = customerName.trim() || "Cliente Mostrador";
+
       const orderData = {
-        customerName: "Cliente Mostrador",
+        customerName: finalCustomerName, // <--- Aquí guardamos el nombre real
         items: cart,
         total: total,
         subtotal: subtotal,
         tax: tax,
         status: OrderStatus.PREPARING,
         createdAt: serverTimestamp(),
-        tableNumber: 5,
+        tableNumber: 5, // Podrías hacer esto dinámico también si quisieras
         type: 'Dine-in',
         paymentMethod: paymentMethod,
-        // En pago con terminal real, aquí guardarías el ID de transacción o últimos 4 dígitos reales
         paymentDetails: paymentMethod === 'card' ? { last4: 'TERM' } : null,
         change: paymentMethod === 'cash' ? change : 0,
         receivedAmount: paymentMethod === 'cash' ? parseFloat(receivedAmount) : total
@@ -102,6 +107,8 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                       <div className="mt-4 text-left font-mono text-sm">
                           <p>Orden: #{lastOrderDetails.id.slice(-6).toUpperCase()}</p>
                           <p>Fecha: {lastOrderDetails.date.toLocaleString()}</p>
+                          {/* CAMBIO: Mostrar nombre del cliente en el ticket */}
+                          <p className="font-bold">Cliente: {lastOrderDetails.customerName}</p>
                       </div>
                   </div>
 
@@ -203,6 +210,26 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
             {/* Panel Derecho: Pago */}
             <div className="lg:col-span-3">
                 <div className="bg-[#102316] rounded-xl border border-white/10 p-6 space-y-6">
+                    
+                    {/* CAMBIO: Campo para ingresar nombre del cliente */}
+                    <div>
+                        <label className="block text-sm font-bold text-gray-300 mb-2 uppercase tracking-wider">Cliente (Opcional)</label>
+                        <div className="relative">
+                            <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500">
+                                <span className="material-symbols-outlined">person</span>
+                            </span>
+                            <input 
+                                type="text" 
+                                className="w-full pl-11 pr-4 py-3 rounded-xl bg-[#22492f]/40 border border-white/10 focus:ring-primary focus:border-primary text-white placeholder-gray-500 outline-none transition-all"
+                                placeholder="Nombre del cliente..."
+                                value={customerName}
+                                onChange={(e) => setCustomerName(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="border-t border-white/5 my-2"></div>
+
                     <div>
                         <h3 className="text-white text-lg font-bold mb-4">Seleccione Método</h3>
                         <div className="grid grid-cols-2 gap-4">
