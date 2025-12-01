@@ -38,17 +38,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
   }
 
   return (
-    <aside className="flex h-full w-20 lg:w-64 flex-col justify-between border-r border-[#22492f]/50 bg-surface-darker p-4 transition-all duration-300">
-      <div className="flex flex-col gap-8">
+    <aside className="flex h-full w-20 lg:w-64 flex-col border-r border-[#22492f]/50 bg-surface-darker p-4 transition-all duration-300">
+      
+      {/* --- SECCIÓN SUPERIOR CON SCROLL --- */}
+      {/* flex-1: Ocupa todo el espacio disponible */}
+      {/* overflow-y-auto: Habilita el scroll vertical si el contenido es muy largo */}
+      <div className="flex flex-col gap-8 flex-1 overflow-y-auto min-h-0">
+        
         {/* Logo y Título */}
-        <div className="flex items-center gap-3 px-2">
+        <div className="flex items-center gap-3 px-2 shrink-0">
            <span className="material-symbols-outlined text-primary text-3xl">point_of_sale</span>
            <h2 className="text-white text-xl font-bold hidden lg:block">Restaurante</h2>
         </div>
 
         {/* Información del Usuario (Solo en modo expandido) */}
         {user && (
-          <div className="hidden lg:flex flex-col gap-2 rounded-lg bg-[#22492f]/30 p-3 border border-white/10">
+          <div className="hidden lg:flex flex-col gap-2 rounded-lg bg-[#22492f]/30 p-3 border border-white/10 shrink-0">
             <div className="flex items-center gap-2">
               <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
                 {user.name?.charAt(0).toUpperCase() || '?'}
@@ -71,7 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
               key={item.value}
               type="button"
               onClick={() => onChangeView(item.value as ViewState)}
-              className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-3 transition-colors ${
+              className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-3 transition-colors shrink-0 ${
                 currentView === item.value 
                   ? 'bg-[#22492f] text-white' 
                   : 'text-secondary hover:bg-[#22492f]/50 hover:text-white'
@@ -86,10 +91,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
         </nav>
       </div>
 
-      {/* Menú Secundario (Inferior) */}
-      <div className="flex flex-col gap-1">
+      {/* --- SECCIÓN INFERIOR FIJA (Footer) --- */}
+      {/* shrink-0: Evita que esta sección se encoja al hacer scroll arriba */}
+      <div className="flex flex-col gap-1 shrink-0 pt-4 border-t border-[#22492f]/30 mt-2">
         
-        {/* Botón de Ajustes (Visible para todos) */}
+        {/* Botón de Ajustes */}
         <button
             type="button"
             onClick={() => onChangeView('SETTINGS')}
@@ -101,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
             <p className="text-sm font-medium hidden lg:block">Ajustes</p>
         </button>
         
-        {/* Botón de Ayuda (Visible para todos) */}
+        {/* Botón de Ayuda */}
         <button
             type="button"
             onClick={() => onChangeView('HELP')}
