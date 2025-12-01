@@ -28,7 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
         {/* Logo y Título */}
         <div className="flex items-center gap-3 px-2">
            <span className="material-symbols-outlined text-primary text-3xl">point_of_sale</span>
-           <h2 className="text-white text-xl font-bold hidden lg:block">Restaurante</h2>
+           <h2 className="text-white text-xl font-bold hidden lg:block">Restaurante UPIICSA</h2>
         </div>
 
         {/* Navegación Principal Dinámica */}
