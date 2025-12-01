@@ -181,33 +181,52 @@ export const POSView: React.FC<POSViewProps> = ({
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {filteredItems.map(item => (
-                          <div 
-                            key={item.id}
-                            onClick={() => {
-                              // Si el producto está agotado, no abrir el modal
-                              if ((item as any).stock === 0) return;
-                              // Abrir modal para personalizar antes de agregar
-                              openCustomize(item);
-                            }}
-                              className={`relative flex flex-col gap-3 rounded-xl bg-surface-dark p-3 transition-transform hover:scale-[1.02] ${((item as any).stock === 0) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-[#22492f] border border-transparent hover:border-primary/30'}`}
-                          >
-                              <div 
-                                  className="aspect-square w-full rounded-lg bg-cover bg-center bg-gray-700" 
-                                  style={{ backgroundImage: `url('${item.image || 'https://placehold.co/200x200/102316/FFF?text=Sin+Imagen'}')` }}
-                              ></div>
-                              {/* Indicador de agotado */}
-                              {(item as any).stock === 0 && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg pointer-events-none">
-                                  <span className="bg-red-600 text-white px-3 py-1 rounded font-bold">Agotado</span>
+                        {filteredItems.map(item => {
+                          // 1. Calculamos el stock de forma segura
+                          const currentStock = item.stock ?? 0;
+                          const isOutOfStock = currentStock <= 0;
+
+                          return (
+                            <div 
+                              key={item.id}
+                              onClick={() => {
+                                // 2. Bloquear el click si no hay stock
+                                if (isOutOfStock) return;
+                                openCustomize(item);
+                              }}
+                              className={`relative flex flex-col gap-3 rounded-xl bg-surface-dark p-3 transition-transform ${
+                                isOutOfStock 
+                                  ? 'cursor-not-allowed opacity-50 grayscale-[0.5]' 
+                                  : 'cursor-pointer hover:scale-[1.02] hover:bg-[#22492f] border border-transparent hover:border-primary/30'
+                              }`}
+                            >
+                                <div 
+                                    className="aspect-square w-full rounded-lg bg-cover bg-center bg-gray-700" 
+                                    style={{ backgroundImage: `url('${item.image || 'https://placehold.co/200x200/102316/FFF?text=Sin+Imagen'}')` }}
+                                ></div>
+                                
+                                {/* 3. Indicador de Agotado mejorado */}
+                                {isOutOfStock && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg pointer-events-none z-10">
+                                    <span className="bg-red-600 text-white px-3 py-1 rounded font-bold border border-red-400 shadow-lg transform -rotate-12">
+                                      AGOTADO
+                                    </span>
+                                  </div>
+                                )}
+
+                                <div className="flex flex-col">
+                                    <p className="text-base font-bold text-white leading-tight line-clamp-2">{item.name}</p>
+                                    <div className="flex justify-between items-center mt-1">
+                                      <p className="text-sm text-primary font-mono">${item.price.toFixed(2)}</p>
+                                      {/* Mostrar aviso de stock bajo si no está agotado */}
+                                      {!isOutOfStock && currentStock < 10 && (
+                                         <span className="text-[10px] text-orange-400 font-bold">¡Solo {currentStock}!</span>
+                                      )}
+                                    </div>
                                 </div>
-                              )}
-                              <div className="flex flex-col">
-                                  <p className="text-base font-bold text-white leading-tight line-clamp-2">{item.name}</p>
-                                  <p className="text-sm text-primary mt-1 font-mono">${item.price.toFixed(2)}</p>
-                              </div>
-                          </div>
-                      ))}
+                            </div>
+                          );
+                        })}
                   </div>
                 )}
             </div>
@@ -244,6 +263,7 @@ export const POSView: React.FC<POSViewProps> = ({
                 <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="px-3 py-1 bg-[#102216] rounded">-</button>
                 <span className="px-3 text-white font-bold">{quantity}</span>
                 <button onClick={() => setQuantity(q => {
+                  // Respetar el stock máximo al incrementar cantidad
                   const max = selectedItem?.stock ?? 9999;
                   return Math.min(max, q + 1);
                 })} className="px-3 py-1 bg-[#102216] rounded">+</button>
@@ -262,8 +282,21 @@ export const POSView: React.FC<POSViewProps> = ({
             )}
 
             <div className="flex justify-end gap-2">
-              <button onClick={() => { setSelectedItem(null); setSelectedExtras([]); setNotes(''); setQuantity(1); }} className="px-4 py-2 bg-transparent text-white border rounded">Cancelar</button>
-              <button onClick={() => { handleConfirmAdd(); }} disabled={selectedItem ? ((selectedItem as any).stock === 0) : false} className="px-4 py-2 bg-primary text-background-dark rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed">Agregar al pedido</button>
+              <button 
+                onClick={() => { setSelectedItem(null); setSelectedExtras([]); setNotes(''); setQuantity(1); }} 
+                className="px-4 py-2 bg-transparent text-white border rounded"
+              >
+                Cancelar
+              </button>
+              
+              <button 
+                onClick={() => { handleConfirmAdd(); }} 
+                // 4. Deshabilitar botón si el stock es 0 o menor
+                disabled={!selectedItem || (selectedItem.stock ?? 0) <= 0} 
+                className="px-4 py-2 bg-primary text-background-dark rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {(!selectedItem || (selectedItem.stock ?? 0) > 0) ? 'Agregar al pedido' : 'Sin Stock'}
+              </button>
             </div>
           </div>
         </div>
