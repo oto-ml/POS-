@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, doc, deleteDoc, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc, addDoc, updateDoc, query, where } from 'firebase/firestore';
 import { MenuItem, UserRole } from '../types';
 import { MENU_ITEMS } from '../constants';
 
@@ -170,7 +170,41 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
     if (!confirm(`¿Eliminar "${name}" del menú?`)) return;
 
     try {
+      // 1. Eliminar el producto de la colección de productos
       await deleteDoc(doc(db, "products", id));
+      
+      // 2. Limpiar referencias del producto en órdenes pendientes (items array)
+      const ordersQuery = query(collection(db, "orders"));
+      const ordersSnapshot = await getDocs(ordersQuery);
+      
+      for (const orderDoc of ordersSnapshot.docs) {
+        const orderData = orderDoc.data();
+        if (orderData.items && Array.isArray(orderData.items)) {
+          // Filtrar los items para remover el producto eliminado
+          const updatedItems = orderData.items.filter((item: any) => item.id !== id);
+          
+          // Si hay cambios, actualizar la orden
+          if (updatedItems.length !== orderData.items.length) {
+            if (updatedItems.length === 0) {
+              // Si no quedan items, eliminar la orden completa
+              await deleteDoc(doc(db, "orders", orderDoc.id));
+            } else {
+              // Si aún hay items, actualizar con los items restantes
+              await updateDoc(doc(db, "orders", orderDoc.id), { items: updatedItems });
+            }
+          }
+        }
+      }
+      
+      // 3. Registrar en auditoría
+      await addDoc(collection(db, "audit_logs"), {
+        action: "delete_product",
+        productId: id,
+        productName: name,
+        timestamp: new Date(),
+        details: "Producto eliminado del sistema"
+      });
+      
       fetchProducts();
     } catch (error) {
       console.error("Error eliminando:", error);

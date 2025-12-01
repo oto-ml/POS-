@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 // IMPORTACIONES CORREGIDAS (Rutas relativas)
 import { db, auth } from '../firebase'; 
 import { UserProfile, UserRole } from '../types';
-import { collection, getDocs, doc, setDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { initializeApp, getApp, deleteApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, sendEmailVerification } from 'firebase/auth';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { isUserLocked, recordFailedAttempt, clearAttempts, getAttemptInfo } from '../utils/rateLimiter';
+import { deleteUserFromAuth, getManualDeleteInstructions } from '../utils/deleteUser';
 
 interface SettingsViewProps {
   userRole?: UserRole;
@@ -196,6 +198,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ userRole }) => {
 
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newUser.email, newUser.password);
         const uid = userCredential.user.uid;
+        const userAuthRef = userCredential.user;
 
         const userData: UserProfile = {
             uid: uid,
@@ -205,9 +208,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ userRole }) => {
         };
 
         await setDoc(doc(db, "users", uid), userData);
+
+        // Enviar correo de confirmación
+        try {
+            await sendEmailVerification(userAuthRef);
+            console.log("Correo de confirmación enviado a", newUser.email);
+        } catch (emailError: any) {
+            console.warn("No se pudo enviar el correo de confirmación:", emailError);
+        }
+
         await signOut(secondaryAuth);
         
-        alert(`Usuario ${newUser.name} creado correctamente.`);
+        alert(`Usuario ${newUser.name} creado correctamente. Se ha enviado un correo de confirmación a ${newUser.email}.`);
         setNewUser({ name: '', email: '', password: '', role: 'cashier' }); 
         fetchUsers(); 
 
@@ -221,16 +233,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ userRole }) => {
   };
 
   // --- BORRAR USUARIO ---
+  // --- BORRAR USUARIO (y todas sus órdenes relacionadas) ---
   const handleDeleteUser = async (uid: string, name: string) => {
-      if (!confirm(`¿Seguro que quieres eliminar el acceso de ${name}?`)) return;
+      if (!confirm(`¿Seguro que quieres eliminar el acceso de ${name}? Se eliminarán también sus órdenes asociadas.`)) return;
+      
+      let userEmail = '';
       
       try {
+          // Obtener el email del usuario antes de eliminarlo
+          const userDoc = users.find(u => u.uid === uid);
+          userEmail = userDoc?.email || '';
+          
+          // 1. Eliminar todas las órdenes del usuario
+          const ordersQuery = query(collection(db, "orders"), where("uid", "==", uid));
+          const ordersSnapshot = await getDocs(ordersQuery);
+          
+          for (const orderDoc of ordersSnapshot.docs) {
+              await deleteDoc(doc(db, "orders", orderDoc.id));
+          }
+          
+          // 2. Eliminar todos los registros de auditoría del usuario
+          const auditQuery = query(collection(db, "audit_logs"), where("uid", "==", uid));
+          const auditSnapshot = await getDocs(auditQuery);
+          
+          for (const auditDoc of auditSnapshot.docs) {
+              await deleteDoc(doc(db, "audit_logs", auditDoc.id));
+          }
+          
+          // 3. Eliminar el usuario de Firestore
           await deleteDoc(doc(db, "users", uid));
-          alert("Acceso revocado correctamente.");
+          
+          // 4. Intentar eliminar la cuenta de Firebase Auth
+          const authDeleted = await deleteUserFromAuth(uid);
+          
+          if (authDeleted) {
+              alert("Usuario y todos sus datos asociados fueron eliminados correctamente.");
+          } else {
+              // Si no se pudo eliminar de Auth automáticamente, mostrar instrucciones
+              const instructions = getManualDeleteInstructions(userEmail);
+              alert(`Usuario eliminado del sistema correctamente.\n\nNOTA IMPORTANTE:\n${instructions}`);
+          }
+          
           fetchUsers();
       } catch (error) {
           console.error(error);
-          alert("Error al eliminar.");
+          alert("Error al eliminar el usuario.");
       }
   };
 
