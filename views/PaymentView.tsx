@@ -17,11 +17,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [receivedAmount, setReceivedAmount] = useState('');
 
-  // Estados para Tarjeta (Simulación)
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-
   // Cálculos
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const tax = subtotal * 0.16;
@@ -29,8 +24,7 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
   
   const change = parseFloat(receivedAmount || '0') - total;
   const isCashValid = parseFloat(receivedAmount || '0') >= total;
-  const isCardValid = cardNumber.length >= 16 && cardExpiry.length >= 4 && cardCvv.length >= 3;
-
+  
   // Denominaciones comunes
   const DENOMINATIONS = [20, 50, 100, 200, 500, 1000];
 
@@ -40,8 +34,10 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
     try {
       setIsProcessing(true);
       
+      // Simulación de espera de la terminal bancaria
       if (paymentMethod === 'card') {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          // Aquí es donde en un caso real te conectarías a la API de la terminal (ej. Stripe Terminal, Clip, etc.)
+          await new Promise(resolve => setTimeout(resolve, 3000)); // 3 segundos de "procesando"
       }
 
       // --- INICIO DE TRANSACCIÓN ATÓMICA (BATCH) ---
@@ -60,7 +56,8 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
         tableNumber: 5,
         type: 'Dine-in',
         paymentMethod: paymentMethod,
-        paymentDetails: paymentMethod === 'card' ? { last4: cardNumber.slice(-4) } : null,
+        // En pago con terminal real, aquí guardarías el ID de transacción o últimos 4 dígitos reales
+        paymentDetails: paymentMethod === 'card' ? { last4: 'TERM' } : null,
         change: paymentMethod === 'cash' ? change : 0,
         receivedAmount: paymentMethod === 'cash' ? parseFloat(receivedAmount) : total
       };
@@ -135,7 +132,7 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                           <span>${lastOrderDetails.total.toFixed(2)}</span>
                       </div>
                       <div className="text-xs space-y-1 text-gray-600">
-                          <p>Pago: {lastOrderDetails.paymentMethod === 'cash' ? 'EFECTIVO' : 'TARJETA'}</p>
+                          <p>Pago: {lastOrderDetails.paymentMethod === 'cash' ? 'EFECTIVO' : 'TARJETA (TERMINAL)'}</p>
                           {lastOrderDetails.paymentMethod === 'cash' && (
                               <p>Cambio: ${lastOrderDetails.change.toFixed(2)}</p>
                           )}
@@ -220,13 +217,13 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                         </div>
                     </div>
 
-                    <div className="min-h-[220px]">
+                    <div className="min-h-[220px] flex flex-col justify-center">
                         {paymentMethod === 'cash' ? (
                             <div className="space-y-6 animate-fade-in">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">Monto Recibido</label>
                                     
-                                    {/* Botones de Denominación Rápida (Grid de 3 para que se vea limpio sin el botón 'Exacto') */}
+                                    {/* Botones de Denominación Rápida */}
                                     <div className="grid grid-cols-3 gap-2 mb-3">
                                         {DENOMINATIONS.map(amount => (
                                             <button 
@@ -257,28 +254,56 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                                 </div>
                             </div>
                         ) : (
-                            <div className="space-y-4 animate-fade-in">
-                                <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center gap-3 text-blue-200 mb-4">
-                                    <span className="material-symbols-outlined">point_of_sale</span>
-                                    <p className="text-sm">Ingrese datos de tarjeta.</p>
+                            /* --- UI DE TERMINAL BANCARIA --- */
+                            <div className="space-y-6 animate-fade-in text-center p-6 bg-blue-500/5 rounded-xl border border-blue-500/20">
+                                <div className="mx-auto size-24 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400 mb-2">
+                                    {isProcessing ? (
+                                        <span className="material-symbols-outlined text-5xl animate-pulse">wifi</span>
+                                    ) : (
+                                        <span className="material-symbols-outlined text-5xl">point_of_sale</span>
+                                    )}
                                 </div>
+                                
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Número de Tarjeta</label>
-                                    <input className="w-full px-4 py-3 rounded-lg bg-[#22492f]/40 border border-white/10 focus:ring-blue-500 text-white font-mono text-lg" type="text" maxLength={19} placeholder="0000 0000 0000 0000" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} />
+                                    <h4 className="text-xl font-bold text-white mb-1">
+                                        {isProcessing ? 'Procesando en Terminal...' : 'Listo para Cobrar'}
+                                    </h4>
+                                    <p className="text-gray-400 text-sm">
+                                        {isProcessing 
+                                            ? 'Por favor espere la confirmación del banco.' 
+                                            : 'Inserte o deslice la tarjeta en la terminal física.'}
+                                    </p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <input className="w-full px-4 py-3 rounded-lg bg-[#22492f]/40 border border-white/10 focus:ring-blue-500 text-white font-mono text-lg" type="text" placeholder="MM/YY" maxLength={5} value={cardExpiry} onChange={(e) => setCardExpiry(e.target.value)} />
-                                    <input className="w-full px-4 py-3 rounded-lg bg-[#22492f]/40 border border-white/10 focus:ring-blue-500 text-white font-mono text-lg" type="password" maxLength={4} placeholder="CVC" value={cardCvv} onChange={(e) => setCardCvv(e.target.value)} />
-                                </div>
+
+                                {!isProcessing && (
+                                    <div className="bg-black/20 p-4 rounded-lg inline-block">
+                                        <p className="text-blue-300 font-mono text-2xl font-bold tracking-widest">
+                                            Total: ${total.toFixed(2)}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
 
                     <div className="flex flex-col gap-3 pt-6 border-t border-white/10 mt-2">
-                        <button onClick={handlePayment} disabled={isProcessing || (paymentMethod === 'cash' ? !isCashValid : !isCardValid)} className={`w-full font-bold py-4 rounded-xl text-lg transition-colors shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${paymentMethod === 'card' ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-primary text-surface-darker hover:bg-primary-hover'}`}>
-                            {isProcessing ? <span className="material-symbols-outlined animate-spin">progress_activity</span> : `Cobrar $${total.toFixed(2)}`}
+                        <button 
+                            onClick={handlePayment} 
+                            disabled={isProcessing || (paymentMethod === 'cash' ? !isCashValid : false)} 
+                            className={`w-full font-bold py-4 rounded-xl text-lg transition-colors shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${paymentMethod === 'card' ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-blue-500/20' : 'bg-primary text-surface-darker hover:bg-primary-hover shadow-primary/20'}`}
+                        >
+                            {isProcessing ? (
+                                <>
+                                    <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                                    <span>Conectando...</span>
+                                </>
+                            ) : (
+                                `Cobrar $${total.toFixed(2)}`
+                            )}
                         </button>
-                        <button onClick={onBack} className="w-full bg-transparent text-gray-400 font-bold py-3 rounded-xl text-base hover:text-white hover:bg-white/5 transition-colors">Cancelar</button>
+                        <button onClick={onBack} disabled={isProcessing} className="w-full bg-transparent text-gray-400 font-bold py-3 rounded-xl text-base hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50">
+                            Cancelar
+                        </button>
                     </div>
                 </div>
             </div>
