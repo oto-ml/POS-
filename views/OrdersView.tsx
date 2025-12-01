@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { OrderStatus, Order } from '../types';
 
 export const OrdersView: React.FC = () => {
@@ -9,10 +9,11 @@ export const OrdersView: React.FC = () => {
 
   // Escuchar pedidos que estén "Listos"
   useEffect(() => {
+    // CAMBIO IMPORTANTE: Ordenamos por 'createdAt' porque 'updatedAt' podría no existir en órdenes viejas
     const q = query(
       collection(db, "orders"),
-      where("status", "==", OrderStatus.READY), // Solo lo que ya salió de cocina
-      orderBy("updatedAt", "desc") // Los más recientes primero
+      where("status", "==", OrderStatus.READY), 
+      orderBy("createdAt", "desc") 
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -22,6 +23,13 @@ export const OrdersView: React.FC = () => {
       })) as Order[];
       setReadyOrders(ordersData);
       setLoading(false);
+    }, (error) => {
+      console.error("Error cargando pedidos listos:", error);
+      setLoading(false);
+      // Si ves este error en consola, haz clic en el enlace que te da Firebase
+      if (error.code === 'failed-precondition') {
+          console.warn("⚠️ FALTA ÍNDICE: Abre la consola (F12) y haz clic en el enlace de Firebase para crearlo.");
+      }
     });
 
     return () => unsubscribe();
@@ -34,7 +42,7 @@ export const OrdersView: React.FC = () => {
       const orderRef = doc(db, "orders", orderId);
       await updateDoc(orderRef, {
         status: OrderStatus.DELIVERED,
-        updatedAt: Timestamp.now()
+        updatedAt: serverTimestamp() // Registramos cuándo se entregó realmente
       });
     } catch (error) {
       console.error("Error al entregar:", error);
@@ -55,7 +63,10 @@ export const OrdersView: React.FC = () => {
       </header>
 
       {loading ? (
-        <div className="text-center text-white py-20">Cargando...</div>
+        <div className="flex justify-center items-center h-64 text-white gap-3">
+            <span className="material-symbols-outlined animate-spin text-2xl">progress_activity</span>
+            <span className="text-lg">Cargando pedidos...</span>
+        </div>
       ) : readyOrders.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-96 text-secondary opacity-50 border-2 border-dashed border-white/10 rounded-2xl">
             <span className="material-symbols-outlined text-6xl mb-4">check_circle_outline</span>

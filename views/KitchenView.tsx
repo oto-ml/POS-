@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { Order, OrderStatus } from '../types';
 
 export const KitchenView: React.FC = () => {
@@ -40,15 +40,14 @@ export const KitchenView: React.FC = () => {
     // Función para marcar como listo
     const handleMarkReady = async (orderId: string) => {
         // --- ACTUALIZACIÓN OPTIMISTA ---
-        // Eliminamos el pedido de la lista localmente de inmediato para que el usuario vea el cambio instantáneo
         setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
 
         try {
             const orderRef = doc(db, "orders", orderId);
             await updateDoc(orderRef, {
-                status: OrderStatus.READY // Cambiamos el estado a 'Listo' en la BD
+                status: OrderStatus.READY, // Cambiamos el estado a 'Listo' en la BD
+                updatedAt: serverTimestamp() // Importante: registramos cuándo salió
             });
-            // El onSnapshot confirmará este cambio después, pero el usuario ya lo vio desaparecer.
         } catch (error) {
             console.error("Error actualizando pedido:", error);
             alert("Error al actualizar el estado del pedido.");
@@ -93,7 +92,7 @@ export const KitchenView: React.FC = () => {
             </div>
         </header>
 
-        {/* Filtros Visuales (Podrían ser funcionales después) */}
+        {/* Filtros Visuales */}
         <div className="flex gap-4 mb-8">
             <button className="bg-primary text-background-dark font-bold px-6 py-2 rounded-lg">Todos ({orders.length})</button>
             <div className="flex items-center gap-2 ml-auto text-sm text-secondary">
@@ -117,7 +116,7 @@ export const KitchenView: React.FC = () => {
             /* Grid de Pedidos */
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
                 {orders.map((ticket) => {
-                    const statusStyle = getStatusStyle(ticket.createdAt); // Asumimos createdAt en Order
+                    const statusStyle = getStatusStyle(ticket.createdAt); 
                     const elapsedTime = getElapsedTime(ticket.createdAt);
 
                     return (

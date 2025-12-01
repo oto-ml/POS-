@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, Timestamp, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, Timestamp, getDocs, serverTimestamp } from 'firebase/firestore';
 import { OrderStatus, MenuItem } from '../types';
 
 export const CookDashboardView: React.FC = () => {
@@ -69,8 +69,10 @@ export const CookDashboardView: React.FC = () => {
         setUpdatingOrderId(orderId);
         try {
             const orderRef = doc(db, "orders", orderId);
+            // CAMBIO: Agregamos updatedAt para registrar cuándo se terminó
             await updateDoc(orderRef, {
-                status: OrderStatus.READY
+                status: OrderStatus.READY,
+                updatedAt: serverTimestamp() 
             });
             console.log(`Pedido ${orderId} marcado como listo`);
         } catch (error: any) {
