@@ -1,5 +1,5 @@
 
-# POS - Punto de Venta (UPIICSA)
+# POS - Punto de Venta (UPIICSA) chido
 
 Proyecto de punto de venta (POS) para restaurantes desarrollado con React + TypeScript y Firebase (Auth, Firestore, Hosting). Incluye interfaz para caja, cocina (KDS), historial, configuración e inventario. Soporta personalización de órdenes (extras/salsas), roles (cajero, cocinero, admin), y despliegue mediante Firebase Hosting + GitHub Actions.
 
