@@ -26,7 +26,6 @@ const App: React.FC = () => {
 
   // --- 1. ESCUCHA DE SESIÓN (Auth Listener) ---
   useEffect(() => {
-    // Verificación de seguridad por si firebase.ts falló
     if (!auth) {
         console.error("Firebase Auth no está inicializado.");
         setLoadingAuth(false);
@@ -36,31 +35,29 @@ const App: React.FC = () => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          // Si hay usuario autenticado, verificamos si tiene PERMISO en la BD
-          // Esta es la parte CLAVE para la seguridad:
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
           
           if (userDoc.exists()) {
-            // ✅ El usuario existe y tiene perfil activo
             const userData = userDoc.data() as UserProfile;
             setUser(userData);
-            // Si estaba en login, lo mandamos al POS
             if (currentView === 'LOGIN') setCurrentView('POS');
+            
+            // Si es cocinero, por defecto va a su cocina, pero permitimos navegación
+            if (userData.role === 'cook' && currentView === 'POS') {
+               setCurrentView('KITCHEN');
+            }
           } else {
-            // ❌ El usuario existe en Auth pero FUE ELIMINADO de la BD
             console.warn("Acceso denegado: Usuario sin perfil activo.");
-            await signOut(auth); // Lo desconectamos forzosamente
+            await signOut(auth);
             setUser(null);
             alert("Acceso denegado: Esta cuenta ha sido desactivada o eliminada.");
           }
         } catch (error) {
           console.error("Error validando usuario:", error);
-          // En caso de error de red, cerramos sesión por seguridad para no dejarlo en el limbo
           await signOut(auth);
           setUser(null);
         }
       } else {
-        // Usuario desconectado
         setUser(null);
       }
       setLoadingAuth(false);
@@ -73,10 +70,9 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     console.log("Cerrando sesión...");
     try {
-        await signOut(auth); // Desconecta de Firebase
-        setCart([]);         // Limpia el carrito por seguridad
-        setUser(null);       // Fuerza el estado a null
-        // La redirección a Login la maneja el renderizado condicional abajo
+        await signOut(auth);
+        setCart([]);
+        setUser(null);
     } catch (error) {
         console.error("Error al salir:", error);
         alert("Error al cerrar sesión. Revisa tu conexión.");
@@ -84,11 +80,9 @@ const App: React.FC = () => {
   };
 
   // --- LÓGICA DEL CARRITO ---
-  // Ahora addToCart acepta opciones: extras, notes y quantity
   const addToCart = (item: MenuItem, options?: { extras?: Array<{ id?: string; name: string; price?: number }>; notes?: string; quantity?: number }) => {
     const quantityToAdd = options?.quantity ?? 1;
     setCart(prev => {
-      // Si existe un item con mismas id y mismas extras/notes, sumar cantidad
       const matchIndex = prev.findIndex(i => {
         if (i.id !== item.id) return false;
         const aExtras = JSON.stringify((i as any).extras || []);
@@ -130,7 +124,6 @@ const App: React.FC = () => {
     setCurrentView('POS');
   };
 
-  // Función dummy para pasar al LoginView
   const handleLogin = () => {};
 
   // --- RENDERIZADO ---
@@ -144,32 +137,19 @@ const App: React.FC = () => {
       );
   }
 
-  // Si no hay usuario autenticado, mostramos Login
   if (!user) {
     return <LoginView onLogin={handleLogin} />;
-  }
-
-  // Si es cocinero, lo redirigimos a su vista especial
-  if (user.role === 'cook') {
-    return (
-      <div className="flex h-screen w-full bg-background-dark text-white font-display overflow-hidden">
-        <Sidebar 
-          currentView={currentView} 
-          onChangeView={setCurrentView} 
-          userRole={user.role}
-          user={user}
-          onLogout={handleLogout} 
-        />
-        <CookDashboardView />
-      </div>
-    );
   }
 
   const renderContent = () => {
     switch (currentView) {
       case 'POS': return <POSView cart={cart} addToCart={addToCart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} clearCart={clearCart} onCheckout={handleCheckout} />;
       case 'PAYMENT': return <PaymentView cart={cart} onBack={() => setCurrentView('POS')} onComplete={handlePaymentComplete} />;
-      case 'KITCHEN': return <KitchenView />;
+      
+      // LÓGICA CORREGIDA: Si es cocinero muestra su dashboard, si no muestra la vista normal
+      case 'KITCHEN': 
+        return user.role === 'cook' ? <CookDashboardView /> : <KitchenView />;
+      
       case 'INVENTORY': return <InventoryView userRole={user?.role} />;
       case 'HISTORY': return <HistoryView />;
       case 'SETTINGS': return <SettingsView userRole={user?.role} />;
