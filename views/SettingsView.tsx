@@ -1,77 +1,121 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+// IMPORTANTE: Rutas relativas para evitar errores de compilación
+import { db } from '../firebase'; 
+import { UserProfile } from '../types';
+import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { initializeApp, getApp, deleteApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 
 export const SettingsView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('general');
-  const [isSaving, setIsSaving] = useState(false);
-  const [showToast, setShowToast] = useState(false);
+  const [activeTab, setActiveTab] = useState('users'); // Iniciamos en usuarios para facilitar el acceso
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Form States
-  const [darkMode, setDarkMode] = useState(true);
-  const [language, setLanguage] = useState('Español (México)');
-  const [currency, setCurrency] = useState('MXN ($)');
-  const [restaurantInfo, setRestaurantInfo] = useState({
-      name: "Restaurante POS",
-      phone: "+52 55 1234 5678",
-      address: "Av. Reforma 222, CDMX",
-      rfc: "XAXX010101000"
-  });
+  // Formulario para Nuevo Usuario
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'cashier' });
+
+  // --- 1. CARGAR LISTA DE USUARIOS ---
+  const fetchUsers = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "users"));
+      const usersList = querySnapshot.docs.map(doc => doc.data() as UserProfile);
+      setUsers(usersList);
+    } catch (error) {
+      console.error("Error cargando usuarios:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+        fetchUsers();
+    }
+  }, [activeTab]);
+
+  // --- 2. CREAR USUARIO (TRUCO DE ADMIN) ---
+  // Usamos una app secundaria para crear el usuario. Si usáramos 'auth' directo,
+  // Firebase cerraría tu sesión de Admin y loguearía al nuevo cajero automáticamente.
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUser.name || !newUser.email || !newUser.password) return alert("Por favor completa todos los campos");
+
+    setLoading(true);
+    let secondaryApp: any = null;
+
+    try {
+        // A. Inicializamos una app temporal
+        const config = getApp().options; 
+        secondaryApp = initializeApp(config, "SecondaryApp");
+        const secondaryAuth = getAuth(secondaryApp);
+
+        // B. Creamos el usuario en Authentication
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newUser.email, newUser.password);
+        const uid = userCredential.user.uid;
+
+        // C. Guardamos su rol y datos en Firestore (Base de datos)
+        const userData: UserProfile = {
+            uid: uid,
+            name: newUser.name,
+            email: newUser.email,
+            role: newUser.role as 'admin' | 'cashier'
+        };
+
+        await setDoc(doc(db, "users", uid), userData);
+
+        // D. Cerramos la sesión de la app temporal
+        await signOut(secondaryAuth);
+        
+        alert(`¡Usuario ${newUser.name} creado exitosamente!`);
+        setNewUser({ name: '', email: '', password: '', role: 'cashier' }); // Limpiar form
+        fetchUsers(); // Recargar lista
+
+    } catch (error: any) {
+        console.error("Error creando usuario:", error);
+        alert("Error: " + error.message);
+    } finally {
+        // Limpieza de memoria
+        if (secondaryApp) deleteApp(secondaryApp);
+        setLoading(false);
+    }
+  };
+
+  // --- 3. BORRAR USUARIO ---
+  const handleDeleteUser = async (uid: string, name: string) => {
+      if (!confirm(`¿Estás seguro de eliminar el acceso a ${name}?`)) return;
+      
+      try {
+          // Eliminamos el documento de Firestore. 
+          // Aunque el usuario siga en Auth, sin este documento el sistema no lo dejará entrar (ver App.tsx).
+          await deleteDoc(doc(db, "users", uid));
+          alert("Usuario eliminado correctamente.");
+          fetchUsers();
+      } catch (error) {
+          console.error(error);
+          alert("Error al eliminar.");
+      }
+  };
 
   const tabs = [
+    { id: 'users', label: 'Gestión de Usuarios', icon: 'group' },
     { id: 'general', label: 'General', icon: 'tune' },
     { id: 'restaurant', label: 'Restaurante', icon: 'store' },
-    { id: 'users', label: 'Usuarios', icon: 'group' },
-    { id: 'printers', label: 'Impresoras', icon: 'print' },
-    { id: 'billing', label: 'Facturación', icon: 'receipt' },
   ];
 
-  const handleSave = () => {
-      setIsSaving(true);
-      setTimeout(() => {
-          setIsSaving(false);
-          setShowToast(true);
-          setTimeout(() => setShowToast(false), 3000);
-      }, 1000);
-  };
-
-  const handleInfoChange = (field: string, value: string) => {
-      setRestaurantInfo(prev => ({ ...prev, [field]: value }));
-  };
-
   return (
-    <main className="flex-1 bg-background-dark overflow-hidden flex flex-col relative">
-      {/* Toast Notification */}
-      {showToast && (
-          <div className="absolute top-6 right-6 bg-primary text-background-dark px-6 py-4 rounded-xl shadow-xl z-50 flex items-center gap-3 animate-bounce-in">
-              <span className="material-symbols-outlined">check_circle</span>
-              <span className="font-bold">Configuración guardada correctamente</span>
-          </div>
-      )}
-
-      <header className="flex items-center justify-between border-b border-white/10 p-6 lg:p-8">
+    <main className="flex-1 bg-background-dark overflow-hidden flex flex-col relative h-full">
+      <header className="flex items-center justify-between border-b border-white/10 p-6">
         <div className="flex items-center gap-4">
             <div className="size-10 rounded-full bg-white/10 flex items-center justify-center text-white">
-                <span className="material-symbols-outlined">settings</span>
+                <span className="material-symbols-outlined">admin_panel_settings</span>
             </div>
-            <h1 className="text-white text-3xl font-black">Configuración</h1>
+            <div>
+                <h1 className="text-white text-3xl font-black">Panel de Administración</h1>
+                <p className="text-secondary text-sm">Control de acceso y configuración</p>
+            </div>
         </div>
-        <button 
-            onClick={handleSave}
-            disabled={isSaving}
-            className="bg-primary text-background-dark font-bold px-6 py-2 rounded-lg hover:bg-primary-hover transition-colors flex items-center gap-2 disabled:opacity-70"
-        >
-            {isSaving ? (
-                <>
-                    <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
-                    Guardando...
-                </>
-            ) : (
-                'Guardar Cambios'
-            )}
-        </button>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Settings Sidebar */}
+        {/* Sidebar de Ajustes */}
         <aside className="w-64 border-r border-white/10 bg-[#102316] overflow-y-auto hidden md:block">
             <nav className="p-4 space-y-1">
                 {tabs.map(tab => (
@@ -91,163 +135,164 @@ export const SettingsView: React.FC = () => {
             </nav>
         </aside>
 
-        {/* Content Area */}
+        {/* Área de Contenido */}
         <div className="flex-1 overflow-y-auto p-8">
-            <div className="max-w-3xl">
-                {activeTab === 'general' && (
+            <div className="max-w-5xl mx-auto">
+                
+                {/* --- PESTAÑA: USUARIOS --- */}
+                {activeTab === 'users' && (
                     <div className="space-y-8 animate-fade-in">
-                        <div>
-                            <h2 className="text-white text-xl font-bold mb-4">Preferencias Generales</h2>
-                            <div className="bg-[#183422] rounded-xl border border-white/10 p-6 space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-white font-medium">Modo Oscuro</p>
-                                        <p className="text-secondary text-sm">Usar tema oscuro en la interfaz</p>
-                                    </div>
-                                    <button 
-                                        onClick={() => setDarkMode(!darkMode)}
-                                        className={`relative inline-flex h-6 w-12 items-center rounded-full transition-colors ${darkMode ? 'bg-primary' : 'bg-gray-600'}`}
+                        
+                        {/* 1. Formulario de Creación */}
+                        <div className="bg-[#183422] rounded-xl border border-white/10 p-6 shadow-lg">
+                            <h3 className="text-white text-lg font-bold mb-6 flex items-center gap-2 border-b border-white/10 pb-4">
+                                <span className="material-symbols-outlined text-primary">person_add</span>
+                                Registrar Nuevo Empleado
+                            </h3>
+                            <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-secondary text-xs font-bold uppercase mb-2">Nombre Completo</label>
+                                    <input 
+                                        type="text" 
+                                        required
+                                        className="w-full bg-[#0d1c12] text-white rounded-lg p-3 border border-white/10 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                                        placeholder="Ej. Juan Pérez"
+                                        value={newUser.name}
+                                        onChange={e => setNewUser({...newUser, name: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-secondary text-xs font-bold uppercase mb-2">Correo Electrónico</label>
+                                    <input 
+                                        type="email" 
+                                        required
+                                        className="w-full bg-[#0d1c12] text-white rounded-lg p-3 border border-white/10 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                                        placeholder="usuario@restaurante.com"
+                                        value={newUser.email}
+                                        onChange={e => setNewUser({...newUser, email: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-secondary text-xs font-bold uppercase mb-2">Contraseña Temporal</label>
+                                    <input 
+                                        type="password" 
+                                        required
+                                        className="w-full bg-[#0d1c12] text-white rounded-lg p-3 border border-white/10 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                                        placeholder="******"
+                                        value={newUser.password}
+                                        onChange={e => setNewUser({...newUser, password: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-secondary text-xs font-bold uppercase mb-2">Rol / Permisos</label>
+                                    <select 
+                                        className="w-full bg-[#0d1c12] text-white rounded-lg p-3 border border-white/10 focus:border-primary outline-none cursor-pointer"
+                                        value={newUser.role}
+                                        onChange={e => setNewUser({...newUser, role: e.target.value})}
                                     >
-                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${darkMode ? 'translate-x-7' : 'translate-x-1'}`} />
+                                        <option value="cashier">Cajero (Solo Ventas y Cocina)</option>
+                                        <option value="admin">Administrador (Acceso Total)</option>
+                                    </select>
+                                </div>
+                                <div className="md:col-span-2 flex justify-end mt-2">
+                                    <button 
+                                        type="submit" 
+                                        disabled={loading}
+                                        className="bg-primary text-background-dark font-bold px-8 py-3 rounded-lg hover:bg-primary-hover hover:scale-105 transition-all flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <span className="material-symbols-outlined animate-spin">refresh</span>
+                                                Creando cuenta...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="material-symbols-outlined">save</span>
+                                                Crear Usuario
+                                            </>
+                                        )}
                                     </button>
                                 </div>
-                                <div className="border-t border-white/10 pt-6">
-                                    <label className="block text-white font-medium mb-2">Idioma</label>
-                                    <select 
-                                        value={language}
-                                        onChange={(e) => setLanguage(e.target.value)}
-                                        className="w-full bg-[#22492f] border-none text-white rounded-lg p-2.5"
-                                    >
-                                        <option>Español (México)</option>
-                                        <option>English (US)</option>
-                                        <option>Français</option>
-                                    </select>
-                                </div>
-                                <div className="border-t border-white/10 pt-6">
-                                    <label className="block text-white font-medium mb-2">Moneda</label>
-                                    <select 
-                                        value={currency}
-                                        onChange={(e) => setCurrency(e.target.value)}
-                                        className="w-full bg-[#22492f] border-none text-white rounded-lg p-2.5"
-                                    >
-                                        <option>MXN ($)</option>
-                                        <option>USD ($)</option>
-                                        <option>EUR (€)</option>
-                                    </select>
-                                </div>
-                            </div>
+                            </form>
                         </div>
-                    </div>
-                )}
 
-                {activeTab === 'restaurant' && (
-                    <div className="space-y-8 animate-fade-in">
+                        {/* 2. Lista de Usuarios */}
                         <div>
-                            <h2 className="text-white text-xl font-bold mb-4">Información del Restaurante</h2>
-                            <div className="bg-[#183422] rounded-xl border border-white/10 p-6 space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-secondary text-sm font-bold mb-2">Nombre del Establecimiento</label>
-                                        <input 
-                                            type="text" 
-                                            value={restaurantInfo.name}
-                                            onChange={(e) => handleInfoChange('name', e.target.value)}
-                                            className="w-full bg-[#22492f] border-none text-white rounded-lg p-3 placeholder-secondary/50 focus:ring-2 focus:ring-primary"
-                                        />
+                            <h3 className="text-white text-lg font-bold mb-4 ml-1">Usuarios Activos</h3>
+                            <div className="bg-[#183422] rounded-xl border border-white/10 overflow-hidden shadow-lg">
+                                <table className="w-full text-left">
+                                    <thead className="bg-[#102316] text-secondary text-xs uppercase font-bold border-b border-white/5">
+                                        <tr>
+                                            <th className="p-4 pl-6">Nombre</th>
+                                            <th className="p-4">Correo</th>
+                                            <th className="p-4">Rol</th>
+                                            <th className="p-4 text-right pr-6">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {users.map(user => (
+                                            <tr key={user.uid} className="hover:bg-white/5 transition-colors group">
+                                                <td className="p-4 pl-6">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`size-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                                                            user.role === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'
+                                                        }`}>
+                                                            {user.name.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <span className="text-white font-medium">{user.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 text-gray-400 text-sm">{user.email}</td>
+                                                <td className="p-4">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                                                        user.role === 'admin' 
+                                                        ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
+                                                        : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                                    }`}>
+                                                        {user.role === 'admin' ? 'Administrador' : 'Cajero'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-right pr-6">
+                                                    <button 
+                                                        onClick={() => handleDeleteUser(user.uid, user.name)}
+                                                        className="text-gray-500 hover:text-red-400 p-2 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                        title="Revocar acceso"
+                                                    >
+                                                        <span className="material-symbols-outlined">delete</span>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {users.length === 0 && (
+                                    <div className="p-12 text-center text-secondary flex flex-col items-center">
+                                        <span className="material-symbols-outlined text-4xl mb-2 opacity-50">group_off</span>
+                                        <p>No se encontraron usuarios registrados.</p>
                                     </div>
-                                    <div>
-                                        <label className="block text-secondary text-sm font-bold mb-2">Teléfono</label>
-                                        <input 
-                                            type="text" 
-                                            value={restaurantInfo.phone}
-                                            onChange={(e) => handleInfoChange('phone', e.target.value)}
-                                            className="w-full bg-[#22492f] border-none text-white rounded-lg p-3 placeholder-secondary/50 focus:ring-2 focus:ring-primary"
-                                        />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-secondary text-sm font-bold mb-2">Dirección</label>
-                                        <input 
-                                            type="text" 
-                                            value={restaurantInfo.address}
-                                            onChange={(e) => handleInfoChange('address', e.target.value)}
-                                            className="w-full bg-[#22492f] border-none text-white rounded-lg p-3 placeholder-secondary/50 focus:ring-2 focus:ring-primary"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-secondary text-sm font-bold mb-2">RFC / Tax ID</label>
-                                        <input 
-                                            type="text" 
-                                            value={restaurantInfo.rfc}
-                                            onChange={(e) => handleInfoChange('rfc', e.target.value)}
-                                            className="w-full bg-[#22492f] border-none text-white rounded-lg p-3 placeholder-secondary/50 focus:ring-2 focus:ring-primary"
-                                        />
-                                    </div>
-                                </div>
+                                )}
                             </div>
                         </div>
                     </div>
                 )}
 
-                {activeTab === 'printers' && (
-                    <div className="space-y-8 animate-fade-in">
-                         <div className="flex justify-between items-center">
-                            <h2 className="text-white text-xl font-bold">Impresoras Conectadas</h2>
-                            <button 
-                                onClick={() => alert('Abrir modal de búsqueda de impresoras...')}
-                                className="text-primary font-bold text-sm hover:underline"
-                            >
-                                + Agregar Impresora
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-1 gap-4">
-                            <div className="bg-[#183422] rounded-xl border border-white/10 p-4 flex items-center justify-between group hover:border-white/20 transition-colors">
-                                <div className="flex items-center gap-4">
-                                    <div className="size-12 rounded-lg bg-[#22492f] flex items-center justify-center text-white">
-                                        <span className="material-symbols-outlined">print</span>
-                                    </div>
-                                    <div>
-                                        <p className="text-white font-bold">Caja Principal</p>
-                                        <p className="text-secondary text-sm">EPSON TM-T88V • 192.168.1.20</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="px-2 py-1 rounded-md bg-green-500/20 text-green-400 text-xs font-bold uppercase">En Línea</span>
-                                    <button className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/10"><span className="material-symbols-outlined">more_vert</span></button>
-                                </div>
-                            </div>
-                            <div className="bg-[#183422] rounded-xl border border-white/10 p-4 flex items-center justify-between group hover:border-white/20 transition-colors">
-                                <div className="flex items-center gap-4">
-                                    <div className="size-12 rounded-lg bg-[#22492f] flex items-center justify-center text-white">
-                                        <span className="material-symbols-outlined">restaurant</span>
-                                    </div>
-                                    <div>
-                                        <p className="text-white font-bold">Cocina - Caliente</p>
-                                        <p className="text-secondary text-sm">Star Micronics SP700 • 192.168.1.21</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="px-2 py-1 rounded-md bg-green-500/20 text-green-400 text-xs font-bold uppercase">En Línea</span>
-                                    <button className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/10"><span className="material-symbols-outlined">more_vert</span></button>
-                                </div>
-                            </div>
-                            <div className="bg-[#183422] rounded-xl border border-white/10 p-4 flex items-center justify-between opacity-75 group hover:opacity-100 hover:border-white/20 transition-all">
-                                <div className="flex items-center gap-4">
-                                    <div className="size-12 rounded-lg bg-[#22492f] flex items-center justify-center text-white">
-                                        <span className="material-symbols-outlined">local_bar</span>
-                                    </div>
-                                    <div>
-                                        <p className="text-white font-bold">Barra</p>
-                                        <p className="text-secondary text-sm">EPSON TM-m30 • 192.168.1.22</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="px-2 py-1 rounded-md bg-red-500/20 text-red-400 text-xs font-bold uppercase">Error de Papel</span>
-                                    <button className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/10"><span className="material-symbols-outlined">more_vert</span></button>
-                                </div>
-                            </div>
-                        </div>
+                {/* --- OTRAS PESTAÑAS (Solo placeholders visuales) --- */}
+                {activeTab === 'general' && (
+                    <div className="text-center py-20 animate-fade-in">
+                        <span className="material-symbols-outlined text-6xl text-secondary opacity-20 mb-4">tune</span>
+                        <h2 className="text-white text-xl font-bold">Configuración General</h2>
+                        <p className="text-secondary">Opciones de idioma, moneda y tema.</p>
                     </div>
                 )}
+
+                 {activeTab === 'restaurant' && (
+                    <div className="text-center py-20 animate-fade-in">
+                        <span className="material-symbols-outlined text-6xl text-secondary opacity-20 mb-4">store</span>
+                        <h2 className="text-white text-xl font-bold">Datos del Restaurante</h2>
+                        <p className="text-secondary">Nombre, dirección y tickets.</p>
+                    </div>
+                )}
+
             </div>
         </div>
       </div>

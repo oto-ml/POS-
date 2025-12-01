@@ -93,7 +93,7 @@ export const POSView: React.FC<POSViewProps> = ({
               style={{ backgroundImage: 'url("https://ui-avatars.com/api/?name=Cajero&background=25f46a&color=000")' }}
             ></div>
             <div className="hidden md:flex flex-col text-right">
-              <h2 className="text-white text-base font-medium">Cajero Turno 1</h2>
+              <h2 className="text-white text-base font-medium">Caja</h2>
               <p className="text-secondary text-sm">Activo</p>
             </div>
           </div>

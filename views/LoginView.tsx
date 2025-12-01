@@ -124,12 +124,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     {isLoading ? 'Verificando...' : 'Iniciar Sesión'}
                 </button>
             </form>
-
-            <div className="mt-6 border-t border-white/10 pt-4 text-center">
-                 <button onClick={seedUsers} className="text-xs text-secondary hover:text-white underline">
-                    🛠️ Crear usuarios de prueba (Solo 1ra vez)
-                 </button>
-            </div>
         </div>
     </div>
   );

@@ -35,35 +35,38 @@ const App: React.FC = () => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          // Si hay usuario, buscamos su rol en Firestore
+          // Si hay usuario autenticado, verificamos si tiene PERMISO en la BD
+          // Esta es la parte CLAVE para la seguridad:
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+          
           if (userDoc.exists()) {
+            // ✅ El usuario existe y tiene perfil activo
             const userData = userDoc.data() as UserProfile;
             setUser(userData);
+            // Si estaba en login, lo mandamos al POS
+            if (currentView === 'LOGIN') setCurrentView('POS');
           } else {
-            // Fallback si el usuario existe en Auth pero no tiene perfil en BD
-            console.warn("Usuario sin perfil en BD, asignando rol por defecto");
-            setUser({ 
-                uid: firebaseUser.uid, 
-                email: firebaseUser.email || '', 
-                name: 'Usuario', 
-                role: 'cashier' 
-            });
+            // ❌ El usuario existe en Auth pero FUE ELIMINADO de la BD
+            console.warn("Acceso denegado: Usuario sin perfil activo.");
+            await signOut(auth); // Lo desconectamos forzosamente
+            setUser(null);
+            alert("Acceso denegado: Esta cuenta ha sido desactivada o eliminada.");
           }
-          // Al loguearse, mandarlo directo al POS
-          setCurrentView('POS');
         } catch (error) {
-          console.error("Error obteniendo datos del usuario:", error);
+          console.error("Error validando usuario:", error);
+          // En caso de error de red, cerramos sesión por seguridad para no dejarlo en el limbo
+          await signOut(auth);
+          setUser(null);
         }
       } else {
-        // Si no hay usuario (logout), limpiamos el estado
+        // Usuario desconectado
         setUser(null);
       }
       setLoadingAuth(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [currentView]); // Agregamos currentView como dependencia
 
   // --- 2. FUNCIÓN DE CERRAR SESIÓN (Logout) ---
   const handleLogout = async () => {
@@ -71,7 +74,8 @@ const App: React.FC = () => {
     try {
         await signOut(auth); // Desconecta de Firebase
         setCart([]);         // Limpia el carrito por seguridad
-        setUser(null);       // Fuerza la vista de Login
+        setUser(null);       // Fuerza el estado a null
+        // La redirección a Login la maneja el renderizado condicional abajo
     } catch (error) {
         console.error("Error al salir:", error);
         alert("Error al cerrar sesión. Revisa tu conexión.");
@@ -111,7 +115,7 @@ const App: React.FC = () => {
     setCurrentView('POS');
   };
 
-  // Función dummy para pasar al LoginView (el cambio real lo hace el useEffect)
+  // Función dummy para pasar al LoginView
   const handleLogin = () => {};
 
   // --- RENDERIZADO ---
@@ -120,7 +124,7 @@ const App: React.FC = () => {
       return (
         <div className="h-screen w-full bg-[#0d1c12] flex flex-col items-center justify-center text-white gap-4">
             <span className="material-symbols-outlined animate-spin text-4xl text-primary">progress_activity</span>
-            <p>Cargando sistema...</p>
+            <p>Verificando credenciales...</p>
         </div>
       );
   }
@@ -145,7 +149,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen w-full bg-background-dark text-white font-display overflow-hidden">
-      {/* 3. AQUÍ CONECTAMOS LA FUNCIÓN AL SIDEBAR */}
       <Sidebar 
         currentView={currentView} 
         onChangeView={setCurrentView} 
