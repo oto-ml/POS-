@@ -139,7 +139,7 @@ const App: React.FC = () => {
       case 'POS': return <POSView cart={cart} addToCart={addToCart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} clearCart={clearCart} onCheckout={handleCheckout} />;
       case 'PAYMENT': return <PaymentView cart={cart} onBack={() => setCurrentView('POS')} onComplete={handlePaymentComplete} />;
       case 'KITCHEN': return <KitchenView />;
-      case 'INVENTORY': return <InventoryView />;
+      case 'INVENTORY': return <InventoryView userRole={user?.role} />;
       case 'HISTORY': return <HistoryView />;
       case 'SETTINGS': return <SettingsView />;
       case 'HELP': return <HelpView />;

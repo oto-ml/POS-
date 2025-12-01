@@ -4,6 +4,9 @@ export interface MenuItem {
   price: number;
   image: string;
   category: string;
+  // Campos añadidos para el módulo de inventario
+  sku?: string;
+  stock?: number;
 }
 
 export interface CartItem extends MenuItem {
@@ -47,5 +50,5 @@ export interface UserProfile {
   role: UserRole;
 }
 
-// Vista INVENTORY añadida para la gestión del menú
+// Actualizamos ViewState para incluir el nuevo módulo de INVENTORY
 export type ViewState = 'POS' | 'PAYMENT' | 'INVENTORY' | 'HISTORY' | 'KITCHEN' | 'SETTINGS' | 'HELP' | 'LOGIN';
