@@ -48,7 +48,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
     fetchProducts();
   }, []);
 
-  // --- LÓGICA VISUAL DE STOCK (Colores Ajustados) ---
+  // --- LÓGICA VISUAL DE STOCK ---
   const getStockStatus = (stock: number = 0) => {
     if (stock === 0) return { 
         label: 'Agotado', 
@@ -68,7 +68,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
   };
 
   const getStockWidth = (stock: number = 0) => {
-      const percentage = Math.min(stock, 100); // Asumiendo 100 como "lleno" visualmente
+      const percentage = Math.min(stock, 100);
       return `${percentage}%`;
   };
 
@@ -81,7 +81,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
       
       if (newStock < 0) return;
 
-      // Actualización Optimista
       setProducts(prev => prev.map(p => p.id === item.id ? { ...p, stock: newStock } : p));
 
       try {
@@ -118,7 +117,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
     }
   };
 
-  // --- ELIMINAR PRODUCTO ---
   const handleDelete = async (id: string) => {
     if (userRole !== 'admin') return;
     if (!confirm(`¿Eliminar producto?`)) return;
@@ -131,12 +129,156 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
     }
   };
 
-  // --- IMPRIMIR RESUMEN ---
+  // --- GENERACIÓN DE REPORTE (PDF / IMPRESIÓN) ---
   const handlePrintSummary = () => {
+      // Validar si hay productos
+      if (products.length === 0) return alert("No hay productos para generar el reporte.");
+
       const printWindow = window.open('', '_blank');
-      if (!printWindow) return alert("Habilita ventanas emergentes");
-      // (Lógica de impresión simplificada para brevedad, se mantiene igual a la versión anterior si se desea)
-      printWindow.document.write('<html><body><h1>Inventario</h1><script>window.print()</script></body></html>');
+      if (!printWindow) return alert("Por favor habilita las ventanas emergentes para ver el reporte.");
+
+      const today = new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      
+      // Cálculos Generales
+      const totalValue = products.reduce((acc, curr) => acc + (curr.price * (curr.stock || 0)), 0);
+      const totalItems = products.reduce((acc, curr) => acc + (curr.stock || 0), 0);
+      const lowStockItems = products.filter(p => (p.stock || 0) < 20).length;
+
+      // Agrupar por Categoría
+      const groupedProducts: { [key: string]: MenuItem[] } = {};
+      products.forEach(p => {
+          const cat = p.category || 'Sin Categoría';
+          if (!groupedProducts[cat]) groupedProducts[cat] = [];
+          groupedProducts[cat].push(p);
+      });
+
+      const htmlContent = `
+        <html>
+        <head>
+            <title>Reporte de Inventario - Restaurante Upiicsa</title>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1a202c; max-width: 1000px; margin: 0 auto; }
+                .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #4169E1; padding-bottom: 20px; margin-bottom: 30px; }
+                .brand h1 { margin: 0; font-size: 28px; color: #4169E1; text-transform: uppercase; letter-spacing: 1px; }
+                .brand p { margin: 5px 0 0; color: #718096; font-size: 14px; }
+                .meta { text-align: right; font-size: 14px; color: #4a5568; }
+                
+                .summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
+                .card { background: #f7fafc; padding: 20px; border-radius: 8px; border-left: 4px solid #4169E1; }
+                .card h3 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; color: #718096; }
+                .card p { margin: 0; font-size: 24px; font-weight: bold; color: #2d3748; }
+                .card.alert { border-left-color: #e53e3e; }
+                .card.alert p { color: #e53e3e; }
+
+                .category-section { margin-bottom: 30px; page-break-inside: avoid; }
+                .category-title { font-size: 16px; font-weight: bold; color: #2d3748; background: #edf2f7; padding: 10px 15px; border-radius: 6px 6px 0 0; border-bottom: 1px solid #e2e8f0; }
+                
+                table { width: 100%; border-collapse: collapse; font-size: 13px; }
+                th { text-align: left; padding: 12px 15px; color: #718096; font-weight: 600; border-bottom: 1px solid #e2e8f0; }
+                td { padding: 10px 15px; border-bottom: 1px solid #edf2f7; color: #4a5568; }
+                tr:last-child td { border-bottom: none; }
+                
+                .text-right { text-align: right; }
+                .text-center { text-align: center; }
+                .mono { font-family: 'Courier New', monospace; }
+                .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+                .badge-low { background: #fed7d7; color: #c53030; }
+                .badge-ok { background: #c6f6d5; color: #2f855a; }
+
+                .footer { margin-top: 50px; padding-top: 30px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 12px; color: #718096; }
+                .signature-box { width: 200px; text-align: center; border-top: 1px solid #cbd5e0; padding-top: 10px; }
+
+                @media print { 
+                    body { -webkit-print-color-adjust: exact; } 
+                    button { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="brand">
+                    <h1>Restaurante Upiicsa</h1>
+                    <p>Reporte de Valorización de Inventario</p>
+                </div>
+                <div class="meta">
+                    <p><strong>Fecha:</strong> ${today}</p>
+                    <p><strong>Generado por:</strong> Sistema POS</p>
+                </div>
+            </div>
+
+            <div class="summary-cards">
+                <div class="card">
+                    <h3>Valor Total</h3>
+                    <p>$${totalValue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div class="card">
+                    <h3>Unidades Totales</h3>
+                    <p>${totalItems}</p>
+                </div>
+                <div class="card alert">
+                    <h3>Productos Bajos</h3>
+                    <p>${lowStockItems}</p>
+                </div>
+            </div>
+
+            ${Object.keys(groupedProducts).map(category => {
+                const catProducts = groupedProducts[category];
+                const catTotal = catProducts.reduce((sum, p) => sum + (p.price * (p.stock || 0)), 0);
+                
+                return `
+                <div class="category-section">
+                    <div class="category-title" style="display:flex; justify-content:space-between;">
+                        <span>${category}</span>
+                        <span>Subtotal: $${catTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th width="15%">SKU</th>
+                                <th width="40%">Producto</th>
+                                <th width="15%" class="text-right">Costo Unit.</th>
+                                <th width="15%" class="text-center">Stock</th>
+                                <th width="15%" class="text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${catProducts.map(p => `
+                                <tr>
+                                    <td class="mono">${p.sku || '-'}</td>
+                                    <td>
+                                        ${p.name}
+                                        ${(p.stock || 0) < 20 ? '<span style="margin-left:8px; color:red; font-size:10px;">⚠ BAJO</span>' : ''}
+                                    </td>
+                                    <td class="text-right">$${p.price.toFixed(2)}</td>
+                                    <td class="text-center">
+                                        <span class="badge ${(p.stock || 0) < 20 ? 'badge-low' : 'badge-ok'}">
+                                            ${p.stock || 0}
+                                        </span>
+                                    </td>
+                                    <td class="text-right font-bold">$${((p.stock || 0) * p.price).toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                `;
+            }).join('')}
+
+            <div class="footer">
+                <div class="signature-box">Firma Gerente</div>
+                <div class="signature-box">Firma Auditor</div>
+            </div>
+
+            <script>
+                // Auto-imprimir al cargar
+                window.onload = function() { window.print(); }
+            </script>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.open();
+      printWindow.document.write(htmlContent);
       printWindow.document.close();
   };
 
@@ -191,10 +333,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
             <div className="flex items-center gap-3">
                 <button 
                     onClick={handlePrintSummary}
-                    className="flex items-center gap-2 bg-white/5 text-secondary px-4 py-2.5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors font-bold text-sm"
+                    className="flex items-center gap-2 bg-white/5 text-secondary px-4 py-2.5 rounded-lg border border-white/10 hover:bg-white/10 hover:text-white transition-colors font-bold text-sm"
                 >
                     <span className="material-symbols-outlined text-lg">print</span>
-                    Imprimir
+                    Imprimir Reporte
                 </button>
             </div>
         </div>
@@ -209,7 +351,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
                             <th className="px-6 py-5">SKU</th>
                             <th className="px-6 py-5">Categoría</th>
                             <th className="px-6 py-5">Precio</th>
-                            <th className="px-6 py-5 w-72">Stock / Nivel</th> {/* Columna más ancha */}
+                            <th className="px-6 py-5 w-72">Stock / Nivel</th>
                             <th className="px-6 py-5 text-center">Estado</th>
                             {userRole === 'admin' && <th className="px-6 py-5 text-center">Editar</th>}
                         </tr>
@@ -217,6 +359,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
                     <tbody className="divide-y divide-white/5 text-sm">
                         {loading ? (
                             <tr><td colSpan={7} className="text-center py-10 text-secondary">Cargando datos...</td></tr>
+                        ) : filteredProducts.length === 0 ? (
+                            <tr><td colSpan={7} className="text-center py-10 text-secondary">No se encontraron productos.</td></tr>
                         ) : filteredProducts.map(item => {
                             const stockInfo = getStockStatus(item.stock);
                             return (
@@ -234,10 +378,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
                                     <td className="px-6 py-4 text-secondary">{item.category}</td>
                                     <td className="px-6 py-4 text-white font-medium">${item.price.toFixed(2)}</td>
                                     
-                                    {/* COLUMNA DE STOCK CON BARRA VISUAL RECUPERADA */}
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            {/* Botón Restar */}
                                             {userRole === 'admin' && (
                                                 <button 
                                                     onClick={() => handleStockChange(item, -1)}
@@ -248,7 +390,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
                                                 </button>
                                             )}
                                             
-                                            {/* Barra de Progreso y Cantidad */}
                                             <div className="flex-1 flex flex-col gap-1.5 min-w-[100px]">
                                                 <div className="flex justify-between items-end px-1">
                                                     <span className="text-white font-bold text-sm">{item.stock || 0}</span>
@@ -262,7 +403,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
                                                 </div>
                                             </div>
 
-                                            {/* Botón Sumar */}
                                             {userRole === 'admin' && (
                                                 <button 
                                                     onClick={() => handleStockChange(item, 1)}
@@ -306,14 +446,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
                 </table>
             </div>
             
-            {/* Paginación */}
             <div className="bg-black/20 px-6 py-4 border-t border-white/5 flex items-center justify-between">
                 <span className="text-secondary text-sm">Mostrando <span className="text-white font-bold">{filteredProducts.length}</span> resultados</span>
             </div>
         </div>
       </div>
 
-      {/* Modal de Edición */}
       {showModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
               <div className="bg-surface-dark w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden animate-fade-in">
