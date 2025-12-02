@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { Order } from '../types';
 
 export const HistoryView: React.FC = () => {
@@ -9,23 +9,19 @@ export const HistoryView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   
-  // Estados para Modales
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
 
-  // --- 1. CARGAR VENTAS POR FECHA ---
   useEffect(() => {
     const fetchOrdersByDate = async () => {
       setLoading(true);
       try {
-        // Definir rango de tiempo: Desde el inicio hasta el final del día seleccionado
         const startOfDay = new Date(selectedDate);
         startOfDay.setHours(0, 0, 0, 0);
         
         const endOfDay = new Date(selectedDate);
         endOfDay.setHours(23, 59, 59, 999);
 
-        // Consultar Firestore
         const q = query(
             collection(db, "orders"),
             where("createdAt", ">=", startOfDay),
@@ -55,7 +51,6 @@ export const HistoryView: React.FC = () => {
     fetchOrdersByDate();
   }, [selectedDate]);
 
-  // --- CALCULOS DEL RESUMEN DEL DÍA ---
   const dailySummary = {
       totalSales: orders.reduce((sum, order) => sum + (order.total || 0), 0),
       totalOrders: orders.length,
@@ -63,7 +58,6 @@ export const HistoryView: React.FC = () => {
       cardTotal: orders.filter(o => o.paymentMethod === 'card').reduce((sum, o) => sum + (o.total || 0), 0),
   };
 
-  // --- MANEJO DE FECHAS ---
   const changeDate = (days: number) => {
       const newDate = new Date(selectedDate);
       newDate.setDate(newDate.getDate() + days);
@@ -76,12 +70,12 @@ export const HistoryView: React.FC = () => {
       return date.toLocaleString();
   };
 
-  // --- MODAL DE TICKET (Reutilizable) ---
   const TicketModal = ({ order, onClose, title }: { order: any, onClose: () => void, title: string }) => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
         <div className="bg-white text-black w-full max-w-sm shadow-2xl flex flex-col max-h-[90vh]">
             <div className="p-6 text-center border-b-2 border-dashed border-gray-300">
-                <h2 className="text-xl font-black uppercase mb-1">Restaurante</h2>
+                {/* NOMBRE ACTUALIZADO AQUÍ */}
+                <h2 className="text-xl font-black uppercase mb-1">Restaurante Upiicsa</h2>
                 <p className="text-xs font-mono text-gray-500">{title}</p>
                 <div className="mt-4 text-left font-mono text-xs">
                     <p>Fecha: {order.createdAt ? formatDate(order.createdAt) : new Date().toLocaleString()}</p>
@@ -91,7 +85,6 @@ export const HistoryView: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto p-6 font-mono text-xs">
                 {title === 'CORTE DE CAJA' ? (
-                    // Layout para Resumen
                     <div className="space-y-4">
                         <div className="flex justify-between font-bold border-b border-black pb-1">
                             <span>CONCEPTO</span>
@@ -115,7 +108,6 @@ export const HistoryView: React.FC = () => {
                         </div>
                     </div>
                 ) : (
-                    // Layout para Venta Individual
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-black">
@@ -143,7 +135,7 @@ export const HistoryView: React.FC = () => {
                         <span>TOTAL</span>
                         <span>${order.total?.toFixed(2)}</span>
                     </div>
-                    <p className="mt-2">Pago: {order.paymentMethod === 'card' ? `Tarjeta **** ${order.paymentDetails?.last4 || ''}` : 'Efectivo'}</p>
+                    <p className="mt-2">Pago: {order.paymentMethod === 'card' ? `Tarjeta (TERMINAL)` : 'Efectivo'}</p>
                 </div>
             )}
 
@@ -164,7 +156,6 @@ export const HistoryView: React.FC = () => {
     <main className="flex-1 p-6 lg:p-8 bg-background-dark overflow-y-auto">
       <div className="max-w-[1600px] mx-auto h-full flex flex-col">
         
-        {/* Header y Controles de Fecha */}
         <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
             <h1 className="text-white text-4xl font-black">Historial de Ventas</h1>
             
@@ -196,7 +187,6 @@ export const HistoryView: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 overflow-hidden">
-            {/* Lista de Ventas (Izquierda) */}
             <div className="lg:col-span-2 bg-[#102316] border border-white/10 rounded-xl overflow-hidden flex flex-col">
                 <div className="p-4 border-b border-white/10 bg-[#183422] flex justify-between items-center">
                     <h3 className="font-bold text-white">Transacciones ({orders.length})</h3>
@@ -257,7 +247,6 @@ export const HistoryView: React.FC = () => {
                 </div>
             </div>
 
-            {/* Detalle de la Venta (Derecha) */}
             <div className="bg-[#102316] border border-white/10 rounded-xl p-6 h-fit sticky top-6">
                 {selectedOrder ? (
                     <div className="space-y-6 animate-fade-in">
@@ -317,7 +306,6 @@ export const HistoryView: React.FC = () => {
         </div>
       </div>
 
-      {/* Modales */}
       {showTicketModal && selectedOrder && (
           <TicketModal 
             order={selectedOrder} 
@@ -328,8 +316,6 @@ export const HistoryView: React.FC = () => {
 
       {showSummaryModal && (
           <TicketModal 
-            // CAMBIO AQUÍ: Usamos selectedDate en lugar de new Date()
-            // para que el ticket muestre la fecha del reporte, no la de hoy
             order={{ createdAt: selectedDate }} 
             title="CORTE DE CAJA" 
             onClose={() => setShowSummaryModal(false)} 

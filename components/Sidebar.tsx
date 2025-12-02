@@ -23,10 +23,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
     // Admin y Cajero
     menuItems = [
       { icon: 'receipt_long', label: 'Pedidos (POS)', value: 'POS' },
-      
-      // NUEVO BOTÓN AGREGADO AQUÍ
       { icon: 'notifications_active', label: 'Listos para Entregar', value: 'ORDERS' },
-      
       { icon: 'restaurant_menu', label: 'Cocina (KDS)', value: 'KITCHEN' },
       { icon: 'inventory_2', label: 'Inventario', value: 'INVENTORY' },
     ];
@@ -40,18 +37,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
   return (
     <aside className="flex h-full w-20 lg:w-64 flex-col border-r border-[#22492f]/50 bg-surface-darker p-4 transition-all duration-300">
       
-      {/* --- SECCIÓN SUPERIOR CON SCROLL --- */}
-      {/* flex-1: Ocupa todo el espacio disponible */}
-      {/* overflow-y-auto: Habilita el scroll vertical si el contenido es muy largo */}
       <div className="flex flex-col gap-8 flex-1 overflow-y-auto min-h-0">
-        
-        {/* Logo y Título */}
+        {/* Logo y Título Actualizado */}
         <div className="flex items-center gap-3 px-2 shrink-0">
-           <span className="material-symbols-outlined text-primary text-3xl">point_of_sale</span>
-           <h2 className="text-white text-xl font-bold hidden lg:block">Restaurante</h2>
+           <span className="material-symbols-outlined text-primary text-3xl">school</span>
+           <h2 className="text-white text-xl font-bold hidden lg:block">Restaurante Upiicsa</h2>
         </div>
 
-        {/* Información del Usuario (Solo en modo expandido) */}
+        {/* Información del Usuario */}
         {user && (
           <div className="hidden lg:flex flex-col gap-2 rounded-lg bg-[#22492f]/30 p-3 border border-white/10 shrink-0">
             <div className="flex items-center gap-2">
@@ -69,7 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
           </div>
         )}
 
-        {/* Navegación Principal Dinámica */}
+        {/* Navegación */}
         <nav className="flex flex-col gap-2">
           {menuItems.map((item) => (
             <button
@@ -91,11 +84,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
         </nav>
       </div>
 
-      {/* --- SECCIÓN INFERIOR FIJA (Footer) --- */}
-      {/* shrink-0: Evita que esta sección se encoja al hacer scroll arriba */}
+      {/* Footer */}
       <div className="flex flex-col gap-1 shrink-0 pt-4 border-t border-[#22492f]/30 mt-2">
-        
-        {/* Botón de Ajustes */}
         <button
             type="button"
             onClick={() => onChangeView('SETTINGS')}
@@ -107,7 +97,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
             <p className="text-sm font-medium hidden lg:block">Ajustes</p>
         </button>
         
-        {/* Botón de Ayuda */}
         <button
             type="button"
             onClick={() => onChangeView('HELP')}
@@ -119,7 +108,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
             <p className="text-sm font-medium hidden lg:block">Ayuda</p>
         </button>
 
-        {/* Botón de Salir */}
         <button 
             type="button"
             onClick={onLogout}

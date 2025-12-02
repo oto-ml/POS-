@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, doc, deleteDoc, addDoc, updateDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc, addDoc, updateDoc, query } from 'firebase/firestore';
 import { MenuItem, UserRole } from '../types';
 import { MENU_ITEMS } from '../constants';
 
@@ -116,7 +116,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ userRole }) => {
         <body>
             <div class="header">
                 <h1>Reporte de Inventario General</h1>
-                <p>Restaurante POS</p>
+                <p>Restaurante Upiicsa</p>
             </div>
             
             <div class="meta">

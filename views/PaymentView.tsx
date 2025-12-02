@@ -18,7 +18,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [receivedAmount, setReceivedAmount] = useState('');
 
-  // Cálculos
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const tax = subtotal * 0.16;
   const total = subtotal + tax;
@@ -51,7 +50,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
         tax: tax,
         status: OrderStatus.PREPARING,
         createdAt: serverTimestamp(),
-        // CAMBIO: Eliminada la propiedad tableNumber y cambiado type a Takeaway
         type: 'Takeaway', 
         paymentMethod: paymentMethod,
         paymentDetails: paymentMethod === 'card' ? { last4: 'TERM' } : null,
@@ -92,7 +90,8 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
               <div className="bg-white text-black w-full max-w-sm rounded-none shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                   <div className="p-6 text-center border-b-2 border-dashed border-gray-300">
-                      <h2 className="text-2xl font-black uppercase tracking-widest mb-1">Restaurante</h2>
+                      {/* NOMBRE ACTUALIZADO AQUÍ */}
+                      <h2 className="text-2xl font-black uppercase tracking-widest mb-1">Restaurante Upiicsa</h2>
                       <p className="text-xs font-mono text-gray-500">Para Llevar</p>
                       <div className="mt-4 text-left font-mono text-sm">
                           <p>Orden: #{lastOrderDetails.id.slice(-6).toUpperCase()}</p>
@@ -270,6 +269,7 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                                         <span className="material-symbols-outlined text-5xl">point_of_sale</span>
                                     )}
                                 </div>
+                                
                                 <div>
                                     <h4 className="text-xl font-bold text-white mb-1">
                                         {isProcessing ? 'Procesando en Terminal...' : 'Listo para Cobrar'}
@@ -280,6 +280,7 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                                             : 'Inserte o deslice la tarjeta en la terminal física.'}
                                     </p>
                                 </div>
+
                                 {!isProcessing && (
                                     <div className="bg-black/20 p-4 rounded-lg inline-block">
                                         <p className="text-blue-300 font-mono text-2xl font-bold tracking-widest">
