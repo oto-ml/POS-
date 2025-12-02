@@ -26,7 +26,6 @@ export const POSView: React.FC<POSViewProps> = ({
   const [isLoading, setIsLoading] = useState(true);
 
   // --- LÓGICA DE PERSONALIZACIÓN DINÁMICA ---
-  // Esta función devuelve las opciones según la categoría del producto
   const getCategoryOptions = (category: string): Array<{ id: string; name: string; price: number }> => {
     switch (category) {
       case 'Platos Fuertes':
@@ -34,8 +33,8 @@ export const POSView: React.FC<POSViewProps> = ({
           { id: 'pf-ketchup', name: 'Ketchup', price: 0 },
           { id: 'pf-mostaza', name: 'Mostaza', price: 0 },
           { id: 'pf-mayonesa', name: 'Mayonesa', price: 0 },
-          { id: 'pf-queso', name: 'Queso', price: 10.0 }, // Precio sugerido
-          { id: 'pf-bbq', name: 'BBQ', price: 5.0 },      // Precio sugerido
+          { id: 'pf-queso', name: 'Queso', price: 10.0 },
+          { id: 'pf-bbq', name: 'BBQ', price: 5.0 },
           { id: 'pf-mango', name: 'Mango', price: 5.0 },
           { id: 'pf-habanero', name: 'Habanero', price: 5.0 },
           { id: 'pf-lemon', name: 'Lemon Pepper', price: 0 },
@@ -43,7 +42,7 @@ export const POSView: React.FC<POSViewProps> = ({
       case 'Entradas':
         return [
           { id: 'ent-ketchup', name: 'Ketchup', price: 0 },
-          { id: 'ent-quesoliq', name: 'Queso Líquido', price: 15.0 }, // Precio sugerido
+          { id: 'ent-quesoliq', name: 'Queso Líquido', price: 15.0 },
           { id: 'ent-salsa', name: 'Salsa', price: 5.0 },
         ];
       case 'Bebidas':
@@ -52,13 +51,12 @@ export const POSView: React.FC<POSViewProps> = ({
           { id: 'beb-temp', name: 'Temp. Ambiente', price: 0 },
         ];
       case 'Postres':
-        return []; // Sin opciones
+        return [];
       default:
-        return []; // Por defecto sin opciones
+        return [];
     }
   };
 
-  // Estado y helpers para el modal de personalización
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<Array<{ id?: string; name: string; price?: number }>>([]);
   const [notes, setNotes] = useState('');
@@ -103,7 +101,6 @@ export const POSView: React.FC<POSViewProps> = ({
         setProducts(productsList);
       } catch (error) {
         console.error("Error conectando con Firebase:", error);
-        // alert("Error cargando el menú. Revisa tu conexión."); // Opcional
       } finally {
         setIsLoading(false);
       }
@@ -121,7 +118,6 @@ export const POSView: React.FC<POSViewProps> = ({
   const tax = subtotal * 0.16;
   const total = subtotal + tax;
 
-  // Obtenemos las opciones actuales basadas en el ítem seleccionado
   const currentOptions = selectedItem ? getCategoryOptions(selectedItem.category) : [];
 
   if (isLoading) {
@@ -137,17 +133,16 @@ export const POSView: React.FC<POSViewProps> = ({
 
   return (
     <main className="flex h-full flex-1 overflow-hidden">
-      {/* Panel Izquierdo: Selección de Menú */}
+      {/* Panel Izquierdo */}
       <div className="flex h-full flex-1 flex-col overflow-hidden bg-background-dark">
-        {/* Header */}
-        <header className="flex items-center justify-between border-b border-[#22492f]/50 p-6">
+        <header className="flex items-center justify-between border-b border-white/5 p-6">
           <div className="flex flex-col">
             <h1 className="text-white text-3xl font-black tracking-[-0.033em]">Selección de Artículos</h1>
           </div>
           <div className="flex items-center gap-4">
             <div 
-              className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-12 border-2 border-[#22492f]" 
-              style={{ backgroundImage: 'url("https://ui-avatars.com/api/?name=Cajero&background=25f46a&color=000")' }}
+              className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-12 border-2 border-primary" 
+              style={{ backgroundImage: 'url("https://ui-avatars.com/api/?name=Cajero&background=4169E1&color=fff")' }}
             ></div>
             <div className="hidden md:flex flex-col text-right">
               <h2 className="text-white text-base font-medium">Caja</h2>
@@ -156,25 +151,22 @@ export const POSView: React.FC<POSViewProps> = ({
           </div>
         </header>
 
-        {/* Contenido */}
         <div className="flex flex-col flex-1 overflow-hidden">
             <div className="px-6 py-4 space-y-4">
-                {/* Buscador */}
                 <div className="relative">
                     <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-secondary">
                         <span className="material-symbols-outlined">search</span>
                     </div>
                     <input 
                         type="text"
-                        className="w-full bg-[#183422] border-none rounded-xl py-3 pl-12 pr-4 text-white placeholder-secondary focus:ring-2 focus:ring-primary focus:outline-none"
+                        className="w-full bg-surface-dark border-none rounded-xl py-3 pl-12 pr-4 text-white placeholder-secondary focus:ring-2 focus:ring-primary focus:outline-none"
                         placeholder="Buscar por nombre de artículo..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
 
-                {/* Categorías */}
-                <div className="flex gap-8 overflow-x-auto border-b border-[#316843] no-scrollbar">
+                <div className="flex gap-8 overflow-x-auto border-b border-white/10 no-scrollbar">
                     {categories.map(cat => (
                         <button
                             key={cat}
@@ -191,7 +183,6 @@ export const POSView: React.FC<POSViewProps> = ({
                 </div>
             </div>
 
-            {/* Grid de Productos */}
             <div className="flex-1 overflow-y-auto px-6 pb-6">
                 {filteredItems.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-40 text-secondary opacity-70">
@@ -213,12 +204,12 @@ export const POSView: React.FC<POSViewProps> = ({
                               className={`relative flex flex-col gap-3 rounded-xl bg-surface-dark p-3 transition-transform ${
                                 isOutOfStock 
                                   ? 'cursor-not-allowed opacity-50 grayscale-[0.5]' 
-                                  : 'cursor-pointer hover:scale-[1.02] hover:bg-[#22492f] border border-transparent hover:border-primary/30'
+                                  : 'cursor-pointer hover:scale-[1.02] hover:bg-white/5 border border-transparent hover:border-primary/50'
                               }`}
                             >
                                 <div 
                                     className="aspect-square w-full rounded-lg bg-cover bg-center bg-gray-700" 
-                                    style={{ backgroundImage: `url('${item.image || 'https://placehold.co/200x200/102316/FFF?text=Sin+Imagen'}')` }}
+                                    style={{ backgroundImage: `url('${item.image || 'https://placehold.co/200x200/36454F/FFF?text=IMG'}')` }}
                                 ></div>
                                 
                                 {isOutOfStock && (
@@ -232,7 +223,7 @@ export const POSView: React.FC<POSViewProps> = ({
                                 <div className="flex flex-col">
                                     <p className="text-base font-bold text-white leading-tight line-clamp-2">{item.name}</p>
                                     <div className="flex justify-between items-center mt-1">
-                                      <p className="text-sm text-primary font-mono">${item.price.toFixed(2)}</p>
+                                      <p className="text-sm text-primary font-mono font-bold">${item.price.toFixed(2)}</p>
                                       {!isOutOfStock && currentStock < 10 && (
                                          <span className="text-[10px] text-orange-400 font-bold">¡Solo {currentStock}!</span>
                                       )}
@@ -247,16 +238,15 @@ export const POSView: React.FC<POSViewProps> = ({
         </div>
       </div>
 
-      {/* Modal de personalización */}
+      {/* Modal */}
       {selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-[#183422] rounded-xl p-6 shadow-2xl border border-white/10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-surface-dark rounded-xl p-6 shadow-2xl border border-white/10">
             <h3 className="text-xl font-bold mb-1 text-white">Personalizar: {selectedItem.name}</h3>
             <p className="text-xs text-primary mb-4 font-bold uppercase tracking-wider">{selectedItem.category}</p>
 
-            {/* Renderizar Opciones SOLAMENTE si existen para esta categoría */}
             {currentOptions.length > 0 && (
-                <div className="mb-4 bg-[#102216] p-3 rounded-lg border border-white/5">
+                <div className="mb-4 bg-black/20 p-3 rounded-lg border border-white/5">
                   <label className="block text-sm text-secondary font-bold mb-3 uppercase text-xs">Opciones y Extras</label>
                   <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
                     {currentOptions.map(ex => (
@@ -265,7 +255,7 @@ export const POSView: React.FC<POSViewProps> = ({
                             selectedExtras.some(e => e.id === ex.id) ? 'bg-primary border-primary' : 'border-gray-500'
                         }`}>
                             {selectedExtras.some(e => e.id === ex.id) && (
-                                <span className="material-symbols-outlined text-black text-sm font-bold">check</span>
+                                <span className="material-symbols-outlined text-white text-sm font-bold">check</span>
                             )}
                         </div>
                         <input 
@@ -286,15 +276,15 @@ export const POSView: React.FC<POSViewProps> = ({
               <textarea 
                 value={notes} 
                 onChange={(e) => setNotes(e.target.value)} 
-                className="w-full bg-[#102216] rounded-lg p-3 text-white border border-white/10 focus:border-primary focus:outline-none text-sm resize-none" 
-                placeholder="Ej: Sin cebolla, extra picante, alergia a..." 
+                className="w-full bg-black/20 rounded-lg p-3 text-white border border-white/10 focus:border-primary focus:outline-none text-sm resize-none" 
+                placeholder="Ej: Sin cebolla, extra picante..." 
                 rows={2}
               />
             </div>
 
-            <div className="flex items-center justify-between gap-4 mb-6 bg-[#102216] p-3 rounded-lg border border-white/5">
+            <div className="flex items-center justify-between gap-4 mb-6 bg-black/20 p-3 rounded-lg border border-white/5">
               <label className="text-sm text-white font-bold">Cantidad</label>
-              <div className="flex items-center gap-1 bg-[#22492f] rounded-lg p-1">
+              <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
                 <button 
                     onClick={() => setQuantity(q => Math.max(1, q - 1))} 
                     className="size-8 flex items-center justify-center text-white hover:bg-white/10 rounded transition-colors"
@@ -314,17 +304,7 @@ export const POSView: React.FC<POSViewProps> = ({
               </div>
             </div>
 
-            {selectedItem && typeof (selectedItem as any).stock !== 'undefined' && (
-              <div className="mb-4 text-right">
-                {(selectedItem as any).stock > 0 ? (
-                  <p className="text-xs text-secondary">Stock disponible: {(selectedItem as any).stock}</p>
-                ) : (
-                  <p className="text-xs text-red-400 font-bold">Agotado</p>
-                )}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3 pt-2 border-t border-white/10">
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
               <button 
                 onClick={() => { setSelectedItem(null); setSelectedExtras([]); setNotes(''); setQuantity(1); }} 
                 className="px-4 py-3 bg-transparent text-gray-300 font-bold hover:text-white transition-colors"
@@ -335,10 +315,10 @@ export const POSView: React.FC<POSViewProps> = ({
               <button 
                 onClick={() => { handleConfirmAdd(); }} 
                 disabled={!selectedItem || (selectedItem.stock ?? 0) <= 0} 
-                className="px-6 py-3 bg-primary text-background-dark rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-hover transition-colors shadow-lg shadow-primary/20 flex items-center gap-2"
+                className="px-6 py-3 bg-primary text-white rounded-xl font-bold disabled:opacity-50 hover:bg-primary-hover transition-colors shadow-lg shadow-primary/20 flex items-center gap-2"
               >
                 <span>Agregar</span>
-                <span className="bg-black/10 px-2 py-0.5 rounded text-xs">
+                <span className="bg-black/20 px-2 py-0.5 rounded text-xs">
                     ${((selectedItem.price * quantity) + (selectedExtras.reduce((acc, ex) => acc + ex.price, 0) * quantity)).toFixed(2)}
                 </span>
               </button>
@@ -347,9 +327,9 @@ export const POSView: React.FC<POSViewProps> = ({
         </div>
       )}
 
-      {/* Panel Derecho: Carrito Actual */}
-      <div className="hidden lg:flex w-[400px] flex-col border-l border-[#22492f]/50 bg-[#142d1c]">
-        <header className="flex items-center justify-between p-6 bg-[#102316]">
+      {/* Panel Derecho */}
+      <div className="hidden lg:flex w-[400px] flex-col border-l border-white/5 bg-surface-darker">
+        <header className="flex items-center justify-between p-6 bg-surface-darker border-b border-white/5">
           <h3 className="text-2xl font-bold text-white">Pedido Actual</h3>
           <button 
             onClick={clearCart}
@@ -369,7 +349,7 @@ export const POSView: React.FC<POSViewProps> = ({
                 </div>
             ) : (
                 cart.map(item => (
-                    <div key={item.id} className="flex items-center gap-4 rounded-xl bg-background-dark p-3 border border-white/5 shadow-sm">
+                    <div key={item.id} className="flex items-center gap-4 rounded-xl bg-surface-dark p-3 border border-white/5 shadow-sm">
                         <div 
                            className="size-16 rounded-lg bg-cover bg-center bg-gray-800 shrink-0"
                            style={{ backgroundImage: `url('${item.image || ''}')` }} 
@@ -384,7 +364,7 @@ export const POSView: React.FC<POSViewProps> = ({
                             </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
-                             <div className="flex items-center gap-2 bg-[#22492f] rounded-lg p-0.5">
+                             <div className="flex items-center gap-2 bg-white/5 rounded-lg p-0.5">
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); updateQuantity(item.id, -1); }}
                                     className="size-7 flex items-center justify-center text-white hover:bg-white/10 rounded font-bold"
@@ -404,8 +384,7 @@ export const POSView: React.FC<POSViewProps> = ({
             )}
         </div>
 
-        {/* Resumen Financiero */}
-        <div className="border-t border-[#22492f]/50 bg-[#0d1c12] p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.2)]">
+        <div className="border-t border-white/5 bg-surface-darker p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.2)]">
           <div className="flex flex-col gap-3">
             <div className="flex justify-between text-base">
               <p className="text-secondary">Subtotal</p>
@@ -415,7 +394,7 @@ export const POSView: React.FC<POSViewProps> = ({
               <p className="text-secondary">IVA (16%)</p>
               <p className="font-medium text-white">${tax.toFixed(2)}</p>
             </div>
-            <div className="my-2 border-t border-dashed border-[#22492f]"></div>
+            <div className="my-2 border-t border-dashed border-white/10"></div>
             <div className="flex justify-between text-xl">
               <p className="font-bold text-white">Total</p>
               <p className="font-black text-primary text-2xl">${total.toFixed(2)}</p>
@@ -425,7 +404,7 @@ export const POSView: React.FC<POSViewProps> = ({
             <button 
                 onClick={onCheckout}
                 disabled={cart.length === 0}
-                className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-sm font-bold text-background-dark hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
+                className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-sm font-bold text-white hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
             >
               Pagar e Imprimir
             </button>

@@ -24,7 +24,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
     setIsLoading(true);
     try {
-      // 1. Crear Admin
       try {
         const adminCred = await createUserWithEmailAndPassword(auth, "admin@pos.com", "123456");
         await setDoc(doc(db, "users", adminCred.user.uid), {
@@ -36,7 +35,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         console.log("Admin creado");
       } catch (e) { console.log("El admin ya existía o falló"); }
 
-      // 2. Crear Cajero
       try {
         const cashierCred = await createUserWithEmailAndPassword(auth, "cajero@pos.com", "123456");
         await setDoc(doc(db, "users", cashierCred.user.uid), {
@@ -55,7 +53,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       setIsLoading(false);
     }
   };
-  // -----------------------------------------------------
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,9 +60,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     setIsLoading(true);
 
     try {
-      // Intentamos iniciar sesión con Firebase Auth
       await signInWithEmailAndPassword(auth, email, password);
-      // El observador en App.tsx manejará la redirección y carga de perfil
     } catch (err: any) {
       console.error(err);
       setError('Credenciales inválidas. Intenta de nuevo.');
@@ -87,50 +82,42 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       }
 
       await sendPasswordResetEmail(auth, resetEmail);
-      setResetMessage(`✅ Se envió un correo a ${resetEmail} con instrucciones para resetear tu contraseña. Revisa tu bandeja de entrada (y spam).`);
+      setResetMessage(`✅ Se envió un correo a ${resetEmail}.`);
       setResetEmail('');
-      
-      // Limpiar mensaje después de 8 segundos
       setTimeout(() => {
         setResetMessage('');
         setShowResetForm(false);
       }, 8000);
     } catch (err: any) {
       console.error(err);
-      if (err.code === 'auth/user-not-found') {
-        setResetError('No hay cuenta asociada a este correo.');
-      } else if (err.code === 'auth/invalid-email') {
-        setResetError('El correo ingresado no es válido.');
-      } else {
-        setResetError('Error al enviar el correo. Intenta más tarde.');
-      }
+      if (err.code === 'auth/user-not-found') setResetError('No hay cuenta asociada.');
+      else if (err.code === 'auth/invalid-email') setResetError('Correo no válido.');
+      else setResetError('Error al enviar el correo.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#0d1c12] flex items-center justify-center p-4 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5 pointer-events-none" 
-             style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #25f46a 1px, transparent 0)', backgroundSize: '40px 40px' }}>
+    <div className="min-h-screen w-full bg-background-dark flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Fondo con patrón azul sutil */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none" 
+             style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #4169E1 1px, transparent 0)', backgroundSize: '40px 40px' }}>
         </div>
 
-        <div className="w-full max-w-md bg-[#183422] border border-white/10 rounded-2xl p-8 shadow-2xl relative z-10">
+        <div className="w-full max-w-md bg-surface-dark border border-white/10 rounded-2xl p-8 shadow-2xl relative z-10">
             <div className="flex flex-col items-center mb-8">
-                <div className="size-16 text-primary mb-4">
-                    <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M36.7273 44C33.9891 44 31.6043 39.8386 30.3636 33.69C29.123 39.8386 26.7382 44 24 44C21.2618 44 18.877 39.8386 17.6364 33.69C16.3957 39.8386 14.0109 44 11.2727 44C7.25611 44 4 35.0457 4 24C4 12.9543 7.25611 4 11.2727 4C14.0109 4 16.3957 8.16144 17.6364 14.31C18.877 8.16144 21.2618 4 24 4C26.7382 4 29.123 8.16144 30.3636 14.31C31.6043 8.16144 33.9891 4 36.7273 4C40.7439 4 44 12.9543 44 24C44 35.0457 40.7439 44 36.7273 44Z" fill="currentColor"></path>
-                    </svg>
+                <div className="size-16 text-primary mb-4 bg-primary/20 rounded-full flex items-center justify-center">
+                    <span className="material-symbols-outlined text-4xl">restaurant</span>
                 </div>
                 <h1 className="text-white text-3xl font-black tracking-tight">
                   {showResetForm ? 'Recuperar Contraseña' : 'Acceso POS'}
                 </h1>
                 <p className="text-secondary mt-2">
-                  {showResetForm ? 'Ingresa tu correo para resetear tu contraseña' : 'Ingresa tus credenciales'}
+                  {showResetForm ? 'Ingresa tu correo' : 'Bienvenido a Restaurante Upiicsa'}
                 </p>
             </div>
 
-            {/* Formulario de Login */}
             {!showResetForm ? (
               <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
@@ -146,7 +133,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                         type="email" 
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full bg-[#102216] border border-white/10 rounded-xl py-3 px-4 text-white focus:ring-2 focus:ring-primary focus:outline-none"
+                        className="w-full bg-background-dark border border-white/10 rounded-xl py-3 px-4 text-white focus:ring-2 focus:ring-primary focus:outline-none placeholder-gray-500"
                         placeholder="usuario@restaurante.com"
                     />
                 </div>
@@ -157,7 +144,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                         type="password" 
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-[#102216] border border-white/10 rounded-xl py-3 px-4 text-white focus:ring-2 focus:ring-primary focus:outline-none"
+                        className="w-full bg-background-dark border border-white/10 rounded-xl py-3 px-4 text-white focus:ring-2 focus:ring-primary focus:outline-none placeholder-gray-500"
                         placeholder="••••••••"
                     />
                 </div>
@@ -165,7 +152,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 <button 
                     type="submit"
                     disabled={isLoading}
-                    className="w-full bg-primary text-background-dark font-bold text-lg py-4 rounded-xl hover:bg-primary-hover transition-all disabled:opacity-70"
+                    className="w-full bg-primary text-white font-bold text-lg py-4 rounded-xl hover:bg-primary-hover transition-all disabled:opacity-70 shadow-lg shadow-primary/20"
                 >
                     {isLoading ? 'Verificando...' : 'Iniciar Sesión'}
                 </button>
@@ -173,13 +160,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 <button
                     type="button"
                     onClick={() => setShowResetForm(true)}
-                    className="w-full text-primary hover:text-primary-hover text-sm font-bold py-2 transition-colors"
+                    className="w-full text-primary hover:text-white text-sm font-bold py-2 transition-colors"
                 >
                     ¿Olvidaste tu contraseña?
                 </button>
               </form>
             ) : (
-              /* Formulario de Reset */
               <form onSubmit={handlePasswordReset} className="space-y-6">
                 {resetMessage && (
                     <div className="bg-green-500/10 border border-green-500/50 text-green-400 px-4 py-3 rounded-xl text-sm flex items-start gap-2">
@@ -201,27 +187,22 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                         type="email" 
                         value={resetEmail}
                         onChange={(e) => setResetEmail(e.target.value)}
-                        className="w-full bg-[#102216] border border-white/10 rounded-xl py-3 px-4 text-white focus:ring-2 focus:ring-primary focus:outline-none"
-                        placeholder="usuario@restaurante.com"
+                        className="w-full bg-background-dark border border-white/10 rounded-xl py-3 px-4 text-white focus:ring-2 focus:ring-primary focus:outline-none"
                     />
-                    <p className="text-gray-400 text-xs mt-2">
-                        Se enviará un correo con un enlace para resetear tu contraseña.
-                    </p>
                 </div>
 
                 <button 
                     type="submit"
                     disabled={isLoading}
-                    className="w-full bg-primary text-background-dark font-bold text-lg py-4 rounded-xl hover:bg-primary-hover transition-all disabled:opacity-70"
+                    className="w-full bg-primary text-white font-bold text-lg py-4 rounded-xl hover:bg-primary-hover transition-all disabled:opacity-70"
                 >
-                    {isLoading ? 'Enviando...' : 'Enviar Correo de Recuperación'}
+                    {isLoading ? 'Enviando...' : 'Enviar Correo'}
                 </button>
 
                 <button
                     type="button"
                     onClick={() => {
                       setShowResetForm(false);
-                      setResetEmail('');
                       setResetMessage('');
                       setResetError('');
                     }}
