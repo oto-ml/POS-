@@ -134,16 +134,16 @@ export const HistoryView: React.FC = () => {
                         <span>TOTAL</span>
                         <span>${order.total?.toFixed(2)}</span>
                     </div>
-                    <p className="mt-2">Pago: {order.paymentMethod === 'card' ? `Tarjeta (TERMINAL)` : 'Efectivo'}</p>
+                    <p className="mt-2">Pago: {order.paymentMethod === 'card' ? `Tarjeta **** ${order.paymentDetails?.last4 || ''}` : 'Efectivo'}</p>
                 </div>
             )}
 
             <div className="p-4 bg-gray-100 border-t border-gray-200 print:hidden text-center flex flex-col gap-2">
-                <button onClick={() => window.print()} className="bg-black text-white py-3 rounded font-bold hover:bg-gray-800">
+                <button onClick={() => window.print()} className="bg-black text-white py-3 rounded font-bold hover:bg-gray-800 transition-colors">
                     <span className="material-symbols-outlined align-middle mr-2">print</span>
                     Imprimir
                 </button>
-                <button onClick={onClose} className="text-gray-600 font-bold py-2 hover:bg-gray-200 rounded">
+                <button onClick={onClose} className="text-gray-600 font-bold py-2 hover:bg-gray-200 rounded transition-colors">
                     Cerrar
                 </button>
             </div>
@@ -158,12 +158,12 @@ export const HistoryView: React.FC = () => {
         <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
             <h1 className="text-white text-4xl font-black">Historial de Ventas</h1>
             
-            <div className="flex items-center gap-4 bg-[#102316] p-2 rounded-xl border border-white/10">
-                <button onClick={() => changeDate(-1)} className="p-2 hover:bg-white/10 rounded-lg text-white">
+            <div className="flex items-center gap-4 bg-surface-dark p-2 rounded-xl border border-white/5 shadow-md">
+                <button onClick={() => changeDate(-1)} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors">
                     <span className="material-symbols-outlined">chevron_left</span>
                 </button>
                 <div className="text-center px-4">
-                    <p className="text-secondary text-xs font-bold uppercase">Viendo fecha</p>
+                    <p className="text-secondary text-xs font-bold uppercase tracking-wider">Viendo fecha</p>
                     <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-primary">calendar_today</span>
                         <span className="text-white font-bold text-lg">
@@ -171,14 +171,14 @@ export const HistoryView: React.FC = () => {
                         </span>
                     </div>
                 </div>
-                <button onClick={() => changeDate(1)} className="p-2 hover:bg-white/10 rounded-lg text-white">
+                <button onClick={() => changeDate(1)} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors">
                     <span className="material-symbols-outlined">chevron_right</span>
                 </button>
             </div>
 
             <button 
                 onClick={() => setShowSummaryModal(true)}
-                className="bg-primary text-background-dark font-bold px-6 py-3 rounded-xl hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20"
+                className="bg-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-primary-hover flex items-center gap-2 shadow-lg shadow-primary/20 transition-all"
             >
                 <span className="material-symbols-outlined">receipt_long</span>
                 Corte del Día
@@ -186,16 +186,17 @@ export const HistoryView: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 overflow-hidden">
-            <div className="lg:col-span-2 bg-[#102316] border border-white/10 rounded-xl overflow-hidden flex flex-col">
-                <div className="p-4 border-b border-white/10 bg-[#183422] flex justify-between items-center">
+            {/* Lista de Ventas (Izquierda) */}
+            <div className="lg:col-span-2 bg-surface-dark border border-white/5 rounded-xl overflow-hidden flex flex-col shadow-xl">
+                <div className="p-4 border-b border-white/5 bg-black/20 flex justify-between items-center">
                     <h3 className="font-bold text-white">Transacciones ({orders.length})</h3>
-                    <span className="text-primary font-mono font-bold">Total: ${dailySummary.totalSales.toFixed(2)}</span>
+                    <span className="text-primary font-mono font-bold text-lg">Total: ${dailySummary.totalSales.toFixed(2)}</span>
                 </div>
                 
                 <div className="flex-1 overflow-y-auto">
                     {loading ? (
                         <div className="flex justify-center items-center h-40 text-white">
-                            <span className="material-symbols-outlined animate-spin mr-2">refresh</span> Cargando...
+                            <span className="material-symbols-outlined animate-spin mr-2 text-primary">refresh</span> Cargando...
                         </div>
                     ) : orders.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-secondary opacity-50 p-10">
@@ -204,7 +205,7 @@ export const HistoryView: React.FC = () => {
                         </div>
                     ) : (
                         <table className="w-full text-left">
-                            <thead className="text-secondary text-xs uppercase font-bold sticky top-0 bg-[#183422]">
+                            <thead className="text-secondary text-xs uppercase font-bold sticky top-0 bg-surface-darker shadow-sm">
                                 <tr>
                                     <th className="px-6 py-3">Hora</th>
                                     <th className="px-6 py-3">Cliente</th>
@@ -218,7 +219,7 @@ export const HistoryView: React.FC = () => {
                                     <tr 
                                         key={order.id} 
                                         onClick={() => setSelectedOrder(order)}
-                                        className={`cursor-pointer transition-colors ${selectedOrder?.id === order.id ? 'bg-primary/10 border-l-4 border-primary' : 'hover:bg-white/5 border-l-4 border-transparent'}`}
+                                        className={`cursor-pointer transition-all ${selectedOrder?.id === order.id ? 'bg-primary/10 border-l-4 border-primary' : 'hover:bg-white/5 border-l-4 border-transparent'}`}
                                     >
                                         <td className="px-6 py-4 text-white font-mono text-sm">
                                             {order.createdAt ? new Date(order.createdAt.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}
@@ -226,7 +227,7 @@ export const HistoryView: React.FC = () => {
                                         <td className="px-6 py-4 text-white font-medium">{order.customerName}</td>
                                         <td className="px-6 py-4">
                                             <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold uppercase ${
-                                                order.paymentMethod === 'card' ? 'text-blue-300 bg-blue-500/10' : 'text-green-300 bg-green-500/10'
+                                                order.paymentMethod === 'card' ? 'text-blue-300 bg-blue-500/10 border border-blue-500/20' : 'text-green-300 bg-green-500/10 border border-green-500/20'
                                             }`}>
                                                 <span className="material-symbols-outlined text-[14px]">
                                                     {order.paymentMethod === 'card' ? 'credit_card' : 'payments'}
@@ -236,7 +237,7 @@ export const HistoryView: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 text-white text-right font-mono font-bold">${order.total?.toFixed(2)}</td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400 text-xs font-bold">PAGADO</span>
+                                            <span className="px-2 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-bold border border-green-500/20">PAGADO</span>
                                         </td>
                                     </tr>
                                 ))}
@@ -246,7 +247,8 @@ export const HistoryView: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-[#102316] border border-white/10 rounded-xl p-6 h-fit sticky top-6">
+            {/* Detalle de la Venta (Derecha) */}
+            <div className="bg-surface-dark border border-white/5 rounded-xl p-6 h-fit sticky top-6 shadow-xl">
                 {selectedOrder ? (
                     <div className="space-y-6 animate-fade-in">
                         <div className="flex justify-between items-start border-b border-white/10 pb-4">
@@ -262,12 +264,12 @@ export const HistoryView: React.FC = () => {
 
                         <div className="space-y-3">
                             {selectedOrder.items?.map((item: any, idx: number) => (
-                                <div key={idx} className="flex justify-between text-sm">
+                                <div key={idx} className="flex justify-between text-sm group">
                                     <div className="flex gap-3">
-                                        <span className="font-bold text-primary">{item.quantity}x</span>
+                                        <span className="font-bold text-primary bg-primary/10 px-2 rounded">{item.quantity}x</span>
                                         <span className="text-white">{item.name}</span>
                                     </div>
-                                    <span className="text-white font-mono">${(item.price * item.quantity).toFixed(2)}</span>
+                                    <span className="text-white font-mono font-medium">${(item.price * item.quantity).toFixed(2)}</span>
                                 </div>
                             ))}
                         </div>
@@ -281,15 +283,15 @@ export const HistoryView: React.FC = () => {
                                 <span>Impuestos</span>
                                 <span>${selectedOrder.tax?.toFixed(2)}</span>
                             </div>
-                            <div className="flex justify-between text-white text-xl font-bold pt-2">
+                            <div className="flex justify-between text-white text-xl font-bold pt-2 border-t border-white/5 mt-2">
                                 <span>Total Pagado</span>
-                                <span>${selectedOrder.total?.toFixed(2)}</span>
+                                <span className="text-primary">${selectedOrder.total?.toFixed(2)}</span>
                             </div>
                         </div>
 
                         <button 
                             onClick={() => setShowTicketModal(true)}
-                            className="w-full bg-white/10 text-white font-bold py-3 rounded-lg hover:bg-white/20 transition-colors flex items-center justify-center gap-2 border border-white/10"
+                            className="w-full bg-white/5 text-white font-bold py-3 rounded-lg hover:bg-white/10 transition-colors flex items-center justify-center gap-2 border border-white/10 shadow-sm"
                         >
                             <span className="material-symbols-outlined">print</span>
                             Reimprimir Ticket
@@ -297,7 +299,9 @@ export const HistoryView: React.FC = () => {
                     </div>
                 ) : (
                     <div className="h-64 flex flex-col items-center justify-center text-secondary opacity-50">
-                        <span className="material-symbols-outlined text-5xl mb-2">receipt</span>
+                        <div className="size-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
+                            <span className="material-symbols-outlined text-4xl">receipt</span>
+                        </div>
                         <p>Selecciona una venta para ver detalles</p>
                     </div>
                 )}
