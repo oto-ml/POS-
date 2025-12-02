@@ -328,7 +328,9 @@ export const HistoryView: React.FC = () => {
 
       {showSummaryModal && (
           <TicketModal 
-            order={{ createdAt: new Date() }} // Dummy data for header
+            // CAMBIO AQUÍ: Usamos selectedDate en lugar de new Date()
+            // para que el ticket muestre la fecha del reporte, no la de hoy
+            order={{ createdAt: selectedDate }} 
             title="CORTE DE CAJA" 
             onClose={() => setShowSummaryModal(false)} 
           />
