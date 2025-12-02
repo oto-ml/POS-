@@ -68,14 +68,14 @@ export const KitchenView: React.FC = () => {
 
   return (
     <main className="flex-1 p-6 lg:p-8 bg-background-dark overflow-y-auto">
-        <header className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
+        <header className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
             <div className="flex items-center gap-4">
-                <div className="size-8 text-primary">
-                    <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path d="M44 11.2727C44 14.0109 39.8386 16.3957 33.69 17.6364C39.8386 18.877 44 21.2618 44 24C44 26.7382 39.8386 29.123 33.69 30.3636C39.8386 31.6043 44 33.9891 44 36.7273C44 40.7439 35.0457 44 24 44C12.9543 44 4 40.7439 4 36.7273C4 33.9891 8.16144 31.6043 14.31 30.3636C8.16144 29.123 4 26.7382 4 24C4 21.2618 8.16144 18.877 14.31 17.6364C8.16144 16.3957 4 14.0109 4 11.2727C4 7.25611 12.9543 4 24 4C35.0457 4 44 7.25611 44 11.2727Z" fill="currentColor"></path></svg>
+                <div className="size-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary">
+                    <span className="material-symbols-outlined text-2xl">restaurant</span>
                 </div>
                 <h1 className="text-white text-3xl font-bold">Vista de Cocina (KDS)</h1>
             </div>
-            <div className="flex items-center bg-surface-dark px-4 py-2 rounded-lg gap-3 border border-white/10">
+            <div className="flex items-center bg-surface-dark px-4 py-2 rounded-lg gap-3 border border-white/5">
                  <span className="material-symbols-outlined text-white">schedule</span>
                  <span className="text-white font-mono font-bold text-lg">{currentTime.toLocaleTimeString()}</span>
             </div>
@@ -83,7 +83,7 @@ export const KitchenView: React.FC = () => {
 
         {loading ? (
             <div className="flex justify-center items-center h-64 text-white">
-                <span className="material-symbols-outlined animate-spin text-4xl">refresh</span>
+                <span className="material-symbols-outlined animate-spin text-4xl text-primary">refresh</span>
                 <span className="ml-2">Cargando pedidos...</span>
             </div>
         ) : orders.length === 0 ? (
@@ -101,15 +101,15 @@ export const KitchenView: React.FC = () => {
                     return (
                         <div 
                             key={ticket.id} 
-                            className={`flex flex-col rounded-xl bg-[#22492f]/30 p-4 border-2 transition-all ${
+                            className={`flex flex-col rounded-xl bg-surface-dark p-4 border-2 transition-all shadow-lg ${
                                 statusStyle === 'late' ? 'border-red-500/60 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 
                                 statusStyle === 'warning' ? 'border-yellow-500/50' : 
-                                'border-transparent hover:border-white/20'
+                                'border-transparent hover:border-white/10'
                             }`}
                         >
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <p className="text-primary text-sm font-medium flex items-center gap-1">
+                                    <p className="text-primary text-sm font-medium flex items-center gap-1 uppercase tracking-wider">
                                         <span className="material-symbols-outlined text-sm">shopping_bag</span>
                                         Para Llevar
                                     </p>
@@ -134,13 +134,18 @@ export const KitchenView: React.FC = () => {
                                 {ticket.items.map((item, i) => (
                                     <li key={i} className="text-white text-sm">
                                         <div className="flex items-start">
-                                            <span className="font-black mr-2 text-lg bg-white/10 px-2 rounded">{item.quantity}</span>
+                                            <span className="font-black mr-3 text-lg bg-black/20 px-2 rounded min-w-[30px] text-center">{item.quantity}</span>
                                             <div className="flex-1">
-                                                <span>{item.name}</span>
+                                                <span className="font-medium">{item.name}</span>
                                                 {item.notes && (
-                                                    <div className="bg-yellow-500/10 text-yellow-300 p-1 rounded mt-1 text-xs font-bold flex items-start gap-1">
-                                                        <span className="material-symbols-outlined text-[10px] mt-0.5">edit_note</span>
+                                                    <div className="bg-yellow-500/10 text-yellow-300 p-1.5 rounded mt-1 text-xs font-bold flex items-start gap-1 border border-yellow-500/20">
+                                                        <span className="material-symbols-outlined text-[12px] mt-0.5">edit_note</span>
                                                         {item.notes}
+                                                    </div>
+                                                )}
+                                                {item.extras && item.extras.length > 0 && (
+                                                    <div className="text-xs text-secondary mt-0.5 ml-1">
+                                                        + {item.extras.map(e => e.name).join(', ')}
                                                     </div>
                                                 )}
                                             </div>
@@ -151,7 +156,7 @@ export const KitchenView: React.FC = () => {
 
                             <button 
                                 onClick={() => handleMarkReady(ticket.id)}
-                                className="mt-4 w-full bg-primary text-background-dark font-bold py-3 rounded-lg hover:bg-primary-hover transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                                className="mt-4 w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary-hover transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
                             >
                                 <span className="material-symbols-outlined">check_circle</span>
                                 Marcar como Listo
