@@ -7,9 +7,7 @@ export const OrdersView: React.FC = () => {
   const [readyOrders, setReadyOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Escuchar pedidos que estén "Listos"
   useEffect(() => {
-    // CAMBIO IMPORTANTE: Ordenamos por 'createdAt' porque 'updatedAt' podría no existir en órdenes viejas
     const q = query(
       collection(db, "orders"),
       where("status", "==", OrderStatus.READY), 
@@ -26,23 +24,18 @@ export const OrdersView: React.FC = () => {
     }, (error) => {
       console.error("Error cargando pedidos listos:", error);
       setLoading(false);
-      // Si ves este error en consola, haz clic en el enlace que te da Firebase
-      if (error.code === 'failed-precondition') {
-          console.warn("⚠️ FALTA ÍNDICE: Abre la consola (F12) y haz clic en el enlace de Firebase para crearlo.");
-      }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Función para entregar al cliente
   const handleDeliver = async (orderId: string) => {
     if(!confirm("¿Confirmar entrega al cliente?")) return;
     try {
       const orderRef = doc(db, "orders", orderId);
       await updateDoc(orderRef, {
         status: OrderStatus.DELIVERED,
-        updatedAt: serverTimestamp() // Registramos cuándo se entregó realmente
+        updatedAt: serverTimestamp()
       });
     } catch (error) {
       console.error("Error al entregar:", error);
@@ -76,7 +69,6 @@ export const OrdersView: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {readyOrders.map((order) => (
             <div key={order.id} className="bg-[#183422] border-l-4 border-green-500 rounded-r-xl p-5 shadow-lg relative overflow-hidden group">
-                {/* Fondo animado */}
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
                     <span className="material-symbols-outlined text-9xl text-green-500">check_circle</span>
                 </div>
@@ -90,9 +82,9 @@ export const OrdersView: React.FC = () => {
                         </div>
                         <div className="text-right">
                             <span className="block text-2xl font-bold text-white text-right">
-                                {order.type === 'Dine-in' ? `Mesa ${order.tableNumber}` : 'Para Llevar'}
+                                Para Llevar
                             </span>
-                            <span className="text-xs text-secondary uppercase font-bold">{order.type}</span>
+                            <span className="text-xs text-secondary uppercase font-bold">TAKEAWAY</span>
                         </div>
                     </div>
 

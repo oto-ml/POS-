@@ -14,9 +14,7 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
   const [showTicket, setShowTicket] = useState(false);
   const [lastOrderDetails, setLastOrderDetails] = useState<any>(null);
   
-  // ESTADO NUEVO: Nombre del cliente
   const [customerName, setCustomerName] = useState('');
-
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [receivedAmount, setReceivedAmount] = useState('');
 
@@ -28,7 +26,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
   const change = parseFloat(receivedAmount || '0') - total;
   const isCashValid = parseFloat(receivedAmount || '0') >= total;
   
-  // Denominaciones comunes
   const DENOMINATIONS = [20, 50, 100, 200, 500, 1000];
 
   const handlePayment = async () => {
@@ -37,30 +34,25 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
     try {
       setIsProcessing(true);
       
-      // Simulación de espera de la terminal bancaria
       if (paymentMethod === 'card') {
-          await new Promise(resolve => setTimeout(resolve, 3000)); // 3 segundos de "procesando"
+          await new Promise(resolve => setTimeout(resolve, 3000));
       }
 
-      // --- INICIO DE TRANSACCIÓN ATÓMICA (BATCH) ---
       const batch = writeBatch(db);
-
-      // 1. Preparar datos del pedido
       const newOrderRef = doc(collection(db, "orders"));
       
-      // CAMBIO: Usamos el nombre ingresado o un default
       const finalCustomerName = customerName.trim() || "Cliente Mostrador";
 
       const orderData = {
-        customerName: finalCustomerName, // <--- Aquí guardamos el nombre real
+        customerName: finalCustomerName,
         items: cart,
         total: total,
         subtotal: subtotal,
         tax: tax,
         status: OrderStatus.PREPARING,
         createdAt: serverTimestamp(),
-        tableNumber: 5, // Podrías hacer esto dinámico también si quisieras
-        type: 'Dine-in',
+        // CAMBIO: Eliminada la propiedad tableNumber y cambiado type a Takeaway
+        type: 'Takeaway', 
         paymentMethod: paymentMethod,
         paymentDetails: paymentMethod === 'card' ? { last4: 'TERM' } : null,
         change: paymentMethod === 'cash' ? change : 0,
@@ -69,7 +61,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
 
       batch.set(newOrderRef, orderData);
 
-      // 2. Restar stock del inventario
       cart.forEach((item) => {
           const productRef = doc(db, "products", item.id);
           batch.update(productRef, {
@@ -83,8 +74,8 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
       setShowTicket(true);
 
     } catch (error) {
-      console.error("Error al procesar venta e inventario:", error);
-      alert("Error crítico: No se pudo procesar la venta ni actualizar el inventario.");
+      console.error("Error al procesar venta:", error);
+      alert("Error crítico al procesar la venta.");
     } finally {
       setIsProcessing(false);
     }
@@ -96,18 +87,16 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
       onComplete();
   };
 
-  // --- MODAL DE TICKET ---
   if (showTicket && lastOrderDetails) {
       return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
               <div className="bg-white text-black w-full max-w-sm rounded-none shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                   <div className="p-6 text-center border-b-2 border-dashed border-gray-300">
                       <h2 className="text-2xl font-black uppercase tracking-widest mb-1">Restaurante</h2>
-                      <p className="text-xs font-mono text-gray-500">Av. Reforma 222, CDMX</p>
+                      <p className="text-xs font-mono text-gray-500">Para Llevar</p>
                       <div className="mt-4 text-left font-mono text-sm">
                           <p>Orden: #{lastOrderDetails.id.slice(-6).toUpperCase()}</p>
                           <p>Fecha: {lastOrderDetails.date.toLocaleString()}</p>
-                          {/* CAMBIO: Mostrar nombre del cliente en el ticket */}
                           <p className="font-bold">Cliente: {lastOrderDetails.customerName}</p>
                       </div>
                   </div>
@@ -162,7 +151,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
   return (
     <main className="flex-1 p-4 lg:p-8 overflow-y-auto bg-background-dark">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
         <div className="flex flex-wrap justify-between items-center gap-3 mb-8">
             <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-4">
@@ -176,7 +164,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-            {/* Panel Izquierdo: Resumen */}
             <div className="lg:col-span-2">
                 <div className="bg-[#102316] rounded-xl border border-white/10 h-full flex flex-col">
                     <h3 className="text-white text-lg font-bold px-6 py-4 border-b border-white/10">Resumen del Pedido</h3>
@@ -207,11 +194,8 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                 </div>
             </div>
 
-            {/* Panel Derecho: Pago */}
             <div className="lg:col-span-3">
                 <div className="bg-[#102316] rounded-xl border border-white/10 p-6 space-y-6">
-                    
-                    {/* CAMBIO: Campo para ingresar nombre del cliente */}
                     <div>
                         <label className="block text-sm font-bold text-gray-300 mb-2 uppercase tracking-wider">Cliente (Opcional)</label>
                         <div className="relative">
@@ -249,8 +233,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                             <div className="space-y-6 animate-fade-in">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">Monto Recibido</label>
-                                    
-                                    {/* Botones de Denominación Rápida */}
                                     <div className="grid grid-cols-3 gap-2 mb-3">
                                         {DENOMINATIONS.map(amount => (
                                             <button 
@@ -262,7 +244,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                                             </button>
                                         ))}
                                     </div>
-
                                     <div className="relative">
                                         <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500 text-lg">$</span>
                                         <input 
@@ -281,7 +262,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                                 </div>
                             </div>
                         ) : (
-                            /* --- UI DE TERMINAL BANCARIA --- */
                             <div className="space-y-6 animate-fade-in text-center p-6 bg-blue-500/5 rounded-xl border border-blue-500/20">
                                 <div className="mx-auto size-24 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400 mb-2">
                                     {isProcessing ? (
@@ -290,7 +270,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                                         <span className="material-symbols-outlined text-5xl">point_of_sale</span>
                                     )}
                                 </div>
-                                
                                 <div>
                                     <h4 className="text-xl font-bold text-white mb-1">
                                         {isProcessing ? 'Procesando en Terminal...' : 'Listo para Cobrar'}
@@ -301,7 +280,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({ cart, onBack, onComple
                                             : 'Inserte o deslice la tarjeta en la terminal física.'}
                                     </p>
                                 </div>
-
                                 {!isProcessing && (
                                     <div className="bg-black/20 p-4 rounded-lg inline-block">
                                         <p className="text-blue-300 font-mono text-2xl font-bold tracking-widest">

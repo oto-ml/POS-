@@ -8,18 +8,16 @@ export const KitchenView: React.FC = () => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Reloj en tiempo real
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
-    // Escuchar pedidos en tiempo real desde Firestore
     useEffect(() => {
         const q = query(
             collection(db, "orders"),
-            where("status", "==", OrderStatus.PREPARING), // Solo pedidos pendientes/preparando
-            orderBy("createdAt", "asc") // Los más viejos primero
+            where("status", "==", OrderStatus.PREPARING),
+            orderBy("createdAt", "asc")
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -30,50 +28,41 @@ export const KitchenView: React.FC = () => {
             setOrders(ordersData);
             setLoading(false);
         }, (error) => {
-            console.error("Error obteniendo pedidos de cocina:", error);
+            console.error("Error obteniendo pedidos:", error);
             setLoading(false);
         });
 
         return () => unsubscribe();
     }, []);
 
-    // Función para marcar como listo
     const handleMarkReady = async (orderId: string) => {
-        // --- ACTUALIZACIÓN OPTIMISTA ---
         setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
-
         try {
             const orderRef = doc(db, "orders", orderId);
             await updateDoc(orderRef, {
-                status: OrderStatus.READY, // Cambiamos el estado a 'Listo' en la BD
-                updatedAt: serverTimestamp() // Importante: registramos cuándo salió
+                status: OrderStatus.READY,
+                updatedAt: serverTimestamp()
             });
         } catch (error) {
-            console.error("Error actualizando pedido:", error);
-            alert("Error al actualizar el estado del pedido.");
+            console.error("Error:", error);
         }
     };
 
-    // Calcular tiempo transcurrido
     const getElapsedTime = (timestamp: any) => {
         if (!timestamp) return "00:00";
-        // Convertimos el Timestamp de Firestore a Date de JS
         const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
         const diff = Math.floor((currentTime.getTime() - date.getTime()) / 1000);
-        
         const mins = Math.floor(diff / 60);
         const secs = diff % 60;
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Determinar estilo basado en tiempo de espera
     const getStatusStyle = (timestamp: any) => {
         if (!timestamp) return 'normal';
         const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
         const diffMinutes = (currentTime.getTime() - date.getTime()) / 1000 / 60;
-        
-        if (diffMinutes > 15) return 'late'; // Rojo si lleva más de 15 min
-        if (diffMinutes > 8) return 'warning'; // Amarillo si lleva más de 8 min
+        if (diffMinutes > 15) return 'late';
+        if (diffMinutes > 8) return 'warning';
         return 'normal';
     };
 
@@ -92,15 +81,6 @@ export const KitchenView: React.FC = () => {
             </div>
         </header>
 
-        {/* Filtros Visuales */}
-        <div className="flex gap-4 mb-8">
-            <button className="bg-primary text-background-dark font-bold px-6 py-2 rounded-lg">Todos ({orders.length})</button>
-            <div className="flex items-center gap-2 ml-auto text-sm text-secondary">
-                <span className="flex items-center gap-1"><span className="size-3 rounded-full bg-red-500/20 border border-red-500"></span> +15 min</span>
-                <span className="flex items-center gap-1"><span className="size-3 rounded-full bg-yellow-500/20 border border-yellow-500"></span> +8 min</span>
-            </div>
-        </div>
-
         {loading ? (
             <div className="flex justify-center items-center h-64 text-white">
                 <span className="material-symbols-outlined animate-spin text-4xl">refresh</span>
@@ -110,10 +90,9 @@ export const KitchenView: React.FC = () => {
             <div className="flex flex-col items-center justify-center h-64 text-secondary opacity-50 border-2 border-dashed border-white/10 rounded-xl">
                 <span className="material-symbols-outlined text-6xl mb-4">check_circle</span>
                 <p className="text-xl font-bold">¡Todo limpio, Chef!</p>
-                <p>No hay pedidos pendientes en este momento.</p>
+                <p>No hay pedidos pendientes.</p>
             </div>
         ) : (
-            /* Grid de Pedidos */
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
                 {orders.map((ticket) => {
                     const statusStyle = getStatusStyle(ticket.createdAt); 
@@ -131,8 +110,8 @@ export const KitchenView: React.FC = () => {
                             <div className="flex justify-between items-start mb-4">
                                 <div>
                                     <p className="text-primary text-sm font-medium flex items-center gap-1">
-                                        {ticket.type === 'Dine-in' ? <span className="material-symbols-outlined text-sm">restaurant</span> : <span className="material-symbols-outlined text-sm">shopping_bag</span>}
-                                        {ticket.type === 'Dine-in' ? `Mesa ${ticket.tableNumber}` : 'Para Llevar'}
+                                        <span className="material-symbols-outlined text-sm">shopping_bag</span>
+                                        Para Llevar
                                     </p>
                                     <p className="text-white text-lg font-bold truncate w-40" title={ticket.customerName}>
                                         {ticket.customerName || 'Cliente'}
