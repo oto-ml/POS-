@@ -10,21 +10,15 @@ export const OrdersView: React.FC = () => {
   useEffect(() => {
     const q = query(
       collection(db, "orders"),
-      where("status", "==", OrderStatus.READY), 
-      orderBy("createdAt", "desc") 
+      where("status", "==", OrderStatus.READY),
+      orderBy("createdAt", "desc")
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const ordersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Order[];
+      const ordersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
       setReadyOrders(ordersData);
       setLoading(false);
-    }, (error) => {
-      console.error("Error cargando pedidos listos:", error);
-      setLoading(false);
-    });
+    }, (error) => { console.error("Error:", error); setLoading(false); });
 
     return () => unsubscribe();
   }, []);
@@ -32,33 +26,26 @@ export const OrdersView: React.FC = () => {
   const handleDeliver = async (orderId: string) => {
     if(!confirm("¿Confirmar entrega al cliente?")) return;
     try {
-      const orderRef = doc(db, "orders", orderId);
-      await updateDoc(orderRef, {
-        status: OrderStatus.DELIVERED,
-        updatedAt: serverTimestamp()
-      });
-    } catch (error) {
-      console.error("Error al entregar:", error);
-      alert("No se pudo actualizar el pedido");
-    }
+      await updateDoc(doc(db, "orders", orderId), { status: OrderStatus.DELIVERED, updatedAt: serverTimestamp() });
+    } catch (error) { console.error("Error:", error); }
   };
 
   return (
     <main className="flex-1 p-6 lg:p-8 bg-background-dark overflow-y-auto">
       <header className="flex items-center gap-4 mb-8">
-        <div className="size-12 rounded-xl bg-green-500/20 text-green-400 flex items-center justify-center border border-green-500/50">
+        <div className="size-12 rounded-xl bg-green-500/20 text-green-400 flex items-center justify-center border border-green-500/30">
             <span className="material-symbols-outlined text-3xl">room_service</span>
         </div>
         <div>
             <h1 className="text-white text-3xl font-bold">Pedidos Listos</h1>
-            <p className="text-secondary">Órdenes terminadas por cocina, listas para entregar.</p>
+            <p className="text-secondary">Órdenes terminadas listas para entregar.</p>
         </div>
       </header>
 
       {loading ? (
         <div className="flex justify-center items-center h-64 text-white gap-3">
-            <span className="material-symbols-outlined animate-spin text-2xl">progress_activity</span>
-            <span className="text-lg">Cargando pedidos...</span>
+            <span className="material-symbols-outlined animate-spin text-2xl text-primary">progress_activity</span>
+            <span className="text-lg">Cargando...</span>
         </div>
       ) : readyOrders.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-96 text-secondary opacity-50 border-2 border-dashed border-white/10 rounded-2xl">
@@ -68,22 +55,20 @@ export const OrdersView: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {readyOrders.map((order) => (
-            <div key={order.id} className="bg-[#183422] border-l-4 border-green-500 rounded-r-xl p-5 shadow-lg relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+            <div key={order.id} className="bg-surface-dark border-l-4 border-green-500 rounded-r-xl p-5 shadow-lg relative overflow-hidden group hover:bg-[#3E505B] transition-colors">
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform pointer-events-none">
                     <span className="material-symbols-outlined text-9xl text-green-500">check_circle</span>
                 </div>
 
                 <div className="relative z-10">
                     <div className="flex justify-between items-start mb-4">
                         <div>
-                            <span className="bg-green-500 text-black text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">Listo para Servir</span>
+                            <span className="bg-green-500/20 text-green-400 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider border border-green-500/30">Listo para Servir</span>
                             <h3 className="text-white text-xl font-bold mt-2">{order.customerName || 'Cliente'}</h3>
-                            <p className="text-secondary text-sm">Folio: #{order.id.slice(-4).toUpperCase()}</p>
+                            <p className="text-secondary text-sm">#{order.id.slice(-4).toUpperCase()}</p>
                         </div>
                         <div className="text-right">
-                            <span className="block text-2xl font-bold text-white text-right">
-                                Para Llevar
-                            </span>
+                            <span className="block text-xl font-bold text-white text-right">Para Llevar</span>
                             <span className="text-xs text-secondary uppercase font-bold">TAKEAWAY</span>
                         </div>
                     </div>
@@ -98,12 +83,8 @@ export const OrdersView: React.FC = () => {
                         </ul>
                     </div>
 
-                    <button 
-                        onClick={() => handleDeliver(order.id)}
-                        className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg shadow-green-900/50"
-                    >
-                        <span className="material-symbols-outlined">done_all</span>
-                        Entregar al Cliente
+                    <button onClick={() => handleDeliver(order.id)} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg shadow-green-900/30">
+                        <span className="material-symbols-outlined">done_all</span> Entregar
                     </button>
                 </div>
             </div>
