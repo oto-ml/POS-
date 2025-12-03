@@ -89,16 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, use
             <p className="text-sm font-medium hidden lg:block">Ajustes</p>
         </button>
         
-        <button
-            type="button"
-            onClick={() => onChangeView('HELP')}
-            className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
-                currentView === 'HELP' ? 'bg-white/10 text-white' : 'text-secondary hover:bg-white/5 hover:text-white'
-            }`}
-        >
-            <span className="material-symbols-outlined text-2xl">help</span>
-            <p className="text-sm font-medium hidden lg:block">Ayuda</p>
-        </button>
+        {/* BOTÓN DE AYUDA ELIMINADO AQUÍ */}
 
         <button 
             type="button"

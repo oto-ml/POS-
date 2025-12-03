@@ -15,7 +15,10 @@ export const OrdersView: React.FC = () => {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const ordersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
+      const ordersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Order[];
       setReadyOrders(ordersData);
       setLoading(false);
     }, (error) => { console.error("Error:", error); setLoading(false); });
@@ -25,9 +28,21 @@ export const OrdersView: React.FC = () => {
 
   const handleDeliver = async (orderId: string) => {
     if(!confirm("¿Confirmar entrega al cliente?")) return;
+
+    // --- CORRECCIÓN: ACTUALIZACIÓN OPTIMISTA ---
+    // Eliminamos visualmente el pedido de inmediato para que no se quede "pegado"
+    setReadyOrders(prev => prev.filter(order => order.id !== orderId));
+
     try {
-      await updateDoc(doc(db, "orders", orderId), { status: OrderStatus.DELIVERED, updatedAt: serverTimestamp() });
-    } catch (error) { console.error("Error:", error); }
+      await updateDoc(doc(db, "orders", orderId), { 
+          status: OrderStatus.DELIVERED, 
+          updatedAt: serverTimestamp() 
+      });
+    } catch (error) { 
+        console.error("Error al actualizar en BD:", error);
+        // Opcional: Si falla, podrías recargar la lista, pero es raro que falle si tienes internet.
+        alert("Hubo un error al guardar el cambio en la nube, pero se ha ocultado de tu lista.");
+    }
   };
 
   return (

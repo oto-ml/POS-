@@ -9,10 +9,9 @@ import { HistoryView } from './views/HistoryView';
 import { SettingsView } from './views/SettingsView';
 import { HelpView } from './views/HelpView';
 import { LoginView } from './views/LoginView';
-import { OrdersView } from './views/OrdersView'; // <--- IMPORTANTE: Importar la nueva vista
+import { OrdersView } from './views/OrdersView';
 import { CartItem, MenuItem, ViewState, UserProfile } from './types';
 
-// Importaciones de Firebase
 import { auth, db } from './firebase'; 
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -20,41 +19,28 @@ import { doc, getDoc } from 'firebase/firestore';
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('POS');
   const [cart, setCart] = useState<CartItem[]>([]);
-  
-  // Estado de Usuario y Carga
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
-  // --- 1. ESCUCHA DE SESIÓN (Auth Listener) ---
   useEffect(() => {
     if (!auth) {
-        console.error("Firebase Auth no está inicializado.");
         setLoadingAuth(false);
         return;
     }
-
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-          
           if (userDoc.exists()) {
             const userData = userDoc.data() as UserProfile;
             setUser(userData);
             if (currentView === 'LOGIN') setCurrentView('POS');
-            
-            // Si es cocinero, por defecto va a su cocina, pero permitimos navegación
-            if (userData.role === 'cook' && currentView === 'POS') {
-               setCurrentView('KITCHEN');
-            }
           } else {
-            console.warn("Acceso denegado: Usuario sin perfil activo.");
             await signOut(auth);
             setUser(null);
-            alert("Acceso denegado: Esta cuenta ha sido desactivada o eliminada.");
+            alert("Acceso denegado.");
           }
         } catch (error) {
-          console.error("Error validando usuario:", error);
           await signOut(auth);
           setUser(null);
         }
@@ -63,49 +49,54 @@ const App: React.FC = () => {
       }
       setLoadingAuth(false);
     });
-
     return () => unsubscribe();
-  }, [currentView]); // Agregamos currentView como dependencia
+  }, [currentView]);
 
-  // --- 2. FUNCIÓN DE CERRAR SESIÓN (Logout) ---
   const handleLogout = async () => {
-    console.log("Cerrando sesión...");
     try {
         await signOut(auth);
         setCart([]);
         setUser(null);
-    } catch (error) {
-        console.error("Error al salir:", error);
-        alert("Error al cerrar sesión. Revisa tu conexión.");
-    }
+    } catch (error) { console.error(error); }
   };
 
-  // --- LÓGICA DEL CARRITO ---
-  const addToCart = (item: MenuItem, options?: { extras?: Array<{ id?: string; name: string; price?: number }>; notes?: string; quantity?: number }) => {
+  // --- LÓGICA DEL CARRITO ACTUALIZADA ---
+
+  const addToCart = (item: MenuItem, options?: { extras?: any[]; notes?: string; quantity?: number }) => {
     const quantityToAdd = options?.quantity ?? 1;
+    
     setCart(prev => {
+      // Buscar si ya existe un item idéntico (mismo producto + mismos extras + mismas notas)
       const matchIndex = prev.findIndex(i => {
         if (i.id !== item.id) return false;
-        const aExtras = JSON.stringify((i as any).extras || []);
-        const bExtras = JSON.stringify(options?.extras || []);
-        const aNotes = (i as any).notes || '';
-        const bNotes = options?.notes || '';
-        return aExtras === bExtras && aNotes === bNotes;
+        const aExtras = JSON.stringify((i.extras || []).sort((a:any,b:any) => a.id.localeCompare(b.id)));
+        const bExtras = JSON.stringify((options?.extras || []).sort((a:any,b:any) => a.id.localeCompare(b.id)));
+        return aExtras === bExtras && (i.notes || '') === (options?.notes || '');
       });
 
       if (matchIndex !== -1) {
+        // Si existe, solo actualizamos la cantidad
         const updated = [...prev];
-        updated[matchIndex] = { ...updated[matchIndex], quantity: updated[matchIndex].quantity + quantityToAdd } as any;
+        updated[matchIndex] = { ...updated[matchIndex], quantity: updated[matchIndex].quantity + quantityToAdd };
         return updated;
       }
 
-      return [...prev, { ...item, quantity: quantityToAdd, notes: options?.notes, extras: options?.extras } as any];
+      // Si no existe, creamos uno nuevo con un internalId único
+      const newItem: CartItem = {
+        ...item,
+        internalId: crypto.randomUUID(), // Generamos ID único para el carrito
+        quantity: quantityToAdd,
+        notes: options?.notes,
+        extras: options?.extras
+      };
+      return [...prev, newItem];
     });
   };
 
-  const updateQuantity = (itemId: string | number, delta: number) => {
+  // Actualizar cantidad usando internalId
+  const updateQuantity = (internalId: string, delta: number) => {
     setCart(prev => prev.map(item => {
-      if (item.id === itemId) {
+      if (item.internalId === internalId) {
         const newQty = item.quantity + delta;
         return newQty > 0 ? { ...item, quantity: newQty } : item;
       }
@@ -113,8 +104,19 @@ const App: React.FC = () => {
     }));
   };
 
-  const removeFromCart = (itemId: string | number) => {
-    setCart(prev => prev.filter(i => i.id !== itemId));
+  // Eliminar usando internalId (solo elimina esa línea específica)
+  const removeFromCart = (internalId: string) => {
+    setCart(prev => prev.filter(i => i.internalId !== internalId));
+  };
+
+  // Nueva función: Editar un item existente
+  const editCartItem = (internalId: string, updates: { extras?: any[]; notes?: string; quantity?: number }) => {
+    setCart(prev => prev.map(item => {
+        if (item.internalId === internalId) {
+            return { ...item, ...updates };
+        }
+        return item;
+    }));
   };
 
   const clearCart = () => setCart([]);
@@ -127,50 +129,42 @@ const App: React.FC = () => {
 
   const handleLogin = () => {};
 
-  // --- RENDERIZADO ---
-  
-  if (loadingAuth) {
-      return (
-        <div className="h-screen w-full bg-[#0d1c12] flex flex-col items-center justify-center text-white gap-4">
-            <span className="material-symbols-outlined animate-spin text-4xl text-primary">progress_activity</span>
-            <p>Verificando credenciales...</p>
-        </div>
-      );
-  }
+  if (loadingAuth) return <div className="h-screen w-full bg-[#0d1c12] flex items-center justify-center text-white">Cargando...</div>;
+  if (!user) return <LoginView onLogin={handleLogin} />;
 
-  if (!user) {
-    return <LoginView onLogin={handleLogin} />;
+  if (user.role === 'cook') {
+    return (
+      <div className="flex h-screen w-full bg-background-dark text-white font-display overflow-hidden">
+        <Sidebar currentView={currentView} onChangeView={setCurrentView} userRole={user.role} user={user} onLogout={handleLogout} />
+        <CookDashboardView />
+      </div>
+    );
   }
 
   const renderContent = () => {
     switch (currentView) {
-      case 'POS': return <POSView cart={cart} addToCart={addToCart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} clearCart={clearCart} onCheckout={handleCheckout} />;
+      case 'POS': return <POSView 
+                            cart={cart} 
+                            addToCart={addToCart} 
+                            updateQuantity={updateQuantity} 
+                            removeFromCart={removeFromCart} 
+                            editCartItem={editCartItem} // Pasamos la nueva función
+                            clearCart={clearCart} 
+                            onCheckout={handleCheckout} 
+                          />;
       case 'PAYMENT': return <PaymentView cart={cart} onBack={() => setCurrentView('POS')} onComplete={handlePaymentComplete} />;
-      
-      // Lógica de Cocina
-      case 'KITCHEN': 
-        return user.role === 'cook' ? <CookDashboardView /> : <KitchenView />;
-      
-      // NUEVA RUTA PARA PEDIDOS LISTOS
-      case 'ORDERS': return <OrdersView />;
-      
+      case 'KITCHEN': return <KitchenView />;
       case 'INVENTORY': return <InventoryView userRole={user?.role} />;
       case 'HISTORY': return <HistoryView />;
       case 'SETTINGS': return <SettingsView userRole={user?.role} />;
-      case 'HELP': return <HelpView />;
+      case 'ORDERS': return <OrdersView />;
       default: return null;
     }
   };
 
   return (
     <div className="flex h-screen w-full bg-background-dark text-white font-display overflow-hidden">
-      <Sidebar 
-        currentView={currentView} 
-        onChangeView={setCurrentView} 
-        userRole={user.role}
-        user={user}
-        onLogout={handleLogout} 
-      />
+      <Sidebar currentView={currentView} onChangeView={setCurrentView} userRole={user.role} user={user} onLogout={handleLogout} />
       {renderContent()}
     </div>
   );

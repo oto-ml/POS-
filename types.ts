@@ -4,12 +4,12 @@ export interface MenuItem {
   price: number;
   image: string;
   category: string;
-  // Campos añadidos para el módulo de inventario
   sku?: string;
   stock?: number;
 }
 
 export interface CartItem extends MenuItem {
+  internalId: string; // Nuevo: ID único para identificar esta línea específica en el carrito
   quantity: number;
   notes?: string;
   extras?: Array<{ id?: string; name: string; price?: number }>;
@@ -35,7 +35,7 @@ export interface Order {
   type: 'Dine-in' | 'Takeaway' | 'Delivery';
   paymentMethod?: 'cash' | 'card';
   createdAt?: any;
-  updatedAt?: any; // Agregado para el ordenamiento en OrdersView
+  updatedAt?: any;
   subtotal?: number;
   tax?: number;
   receivedAmount?: number;
@@ -52,5 +52,4 @@ export interface UserProfile {
   role: UserRole;
 }
 
-// Actualizamos ViewState para incluir ORDERS
 export type ViewState = 'POS' | 'PAYMENT' | 'INVENTORY' | 'HISTORY' | 'KITCHEN' | 'SETTINGS' | 'HELP' | 'LOGIN' | 'ORDERS';
