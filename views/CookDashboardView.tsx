@@ -147,14 +147,35 @@ export const CookDashboardView: React.FC = () => {
                                                 </div>
                                             </div>
 
-                                            <div className="flex-1 space-y-2 mb-4 p-3 bg-black/20 rounded-lg border border-white/5 max-h-64 overflow-y-auto">
+                                            <div className="flex-1 space-y-3 mb-4 p-3 bg-black/20 rounded-lg border border-white/5 max-h-80 overflow-y-auto">
                                                 {order.items.map((item: any, idx: number) => (
-                                                    <div key={idx} className="flex justify-between items-start gap-2">
+                                                    <div key={idx} className="flex justify-between items-start gap-3 border-b border-white/5 pb-2 last:border-0 last:pb-0">
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-white font-bold line-clamp-1">{item.name}</p>
-                                                            {item.notes && <p className="text-yellow-300 text-xs italic">📝 {item.notes}</p>}
+                                                            <p className="text-white font-bold text-lg leading-tight">{item.name}</p>
+                                                            
+                                                            {/* SECCIÓN NUEVA: EXTRAS */}
+                                                            {item.extras && item.extras.length > 0 && (
+                                                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                    {item.extras.map((extra: any, i: number) => (
+                                                                        <span key={i} className="text-xs font-bold bg-blue-500/20 text-blue-200 px-2 py-0.5 rounded border border-blue-500/30">
+                                                                            + {extra.name}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+
+                                                            {/* SECCIÓN NUEVA: NOTAS */}
+                                                            {item.notes && (
+                                                                <div className="mt-1.5 flex items-start gap-1">
+                                                                    <p className="text-yellow-300 text-sm italic bg-yellow-500/10 px-2 py-1 rounded border border-yellow-500/20 w-full">
+                                                                        📝 {item.notes}
+                                                                    </p>
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                        <span className="text-primary font-bold text-lg shrink-0">×{item.quantity}</span>
+                                                        <span className="text-primary font-black text-2xl shrink-0 bg-primary/10 px-3 py-1 rounded-lg">
+                                                            {item.quantity}
+                                                        </span>
                                                     </div>
                                                 ))}
                                             </div>
