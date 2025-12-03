@@ -9,7 +9,7 @@ export interface MenuItem {
 }
 
 export interface CartItem extends MenuItem {
-  internalId: string; // Nuevo: ID único para identificar esta línea específica en el carrito
+  internalId: string;
   quantity: number;
   notes?: string;
   extras?: Array<{ id?: string; name: string; price?: number }>;
@@ -21,7 +21,8 @@ export enum OrderStatus {
   DELIVERED = 'Entregado',
   PENDING = 'Pendiente',
   COMPLETED = 'Completado',
-  CANCELLED = 'Cancelado'
+  CANCELLED = 'Cancelado',
+  RETURNED = 'Devuelto' // NUEVO ESTADO
 }
 
 export interface Order {
@@ -41,6 +42,10 @@ export interface Order {
   receivedAmount?: number;
   change?: number;
   paymentDetails?: { last4?: string };
+  // NUEVOS CAMPOS PARA DEVOLUCIÓN
+  returnReason?: string;
+  authorizedBy?: string;
+  returnedAt?: any;
 }
 
 export type UserRole = 'admin' | 'cashier' | 'cook';
@@ -52,4 +57,4 @@ export interface UserProfile {
   role: UserRole;
 }
 
-export type ViewState = 'POS' | 'PAYMENT' | 'INVENTORY' | 'HISTORY' | 'KITCHEN' | 'SETTINGS' | 'HELP' | 'LOGIN' | 'ORDERS';
+export type ViewState = 'POS' | 'PAYMENT' | 'INVENTORY' | 'HISTORY' | 'KITCHEN' | 'SETTINGS' | 'LOGIN' | 'ORDERS';
