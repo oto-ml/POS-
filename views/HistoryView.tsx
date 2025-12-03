@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, orderBy, getDocs, doc, writeBatch, increment, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, doc, writeBatch, increment, serverTimestamp, getDoc } from 'firebase/firestore';
 import { Order, OrderStatus } from '../types';
 import { getApp, initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
@@ -43,7 +43,6 @@ export const HistoryView: React.FC = () => {
       })) as Order[];
 
       setOrders(fetchedOrders);
-      // Mantener seleccionado si existe, si no resetear
       if (selectedOrder) {
           const updatedSelected = fetchedOrders.find(o => o.id === selectedOrder.id);
           setSelectedOrder(updatedSelected || null);
@@ -59,7 +58,7 @@ export const HistoryView: React.FC = () => {
     fetchOrders();
   }, [selectedDate]);
 
-  // --- PROCESAR DEVOLUCIÓN ---
+  // --- AUTORIZACIÓN ESTRICTA (SOLO GERENTE) ---
   const handleAuthorizeReturn = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!selectedOrder) return;
@@ -69,29 +68,42 @@ export const HistoryView: React.FC = () => {
       let secondaryApp: any = null;
 
       try {
-          // 1. Validar credenciales de Gerente (Creando app secundaria para no desloguear al cajero)
+          // 1. Inicializar app secundaria para verificar credenciales sin cerrar sesión del cajero
           const config = getApp().options;
           secondaryApp = initializeApp(config, "AuthApp");
           const secondaryAuth = getAuth(secondaryApp);
           
+          // 2. Autenticar con las credenciales ingresadas
           const userCred = await signInWithEmailAndPassword(secondaryAuth, adminEmail, adminPassword);
-          
-          // Verificar si es admin en Firestore (Opcional, por ahora basta con que tenga login)
-          // ... lógica adicional de seguridad aquí ...
+          const uid = userCred.user.uid;
 
-          // 2. Ejecutar Devolución (Transacción Batch)
+          // 3. VERIFICACIÓN DE ROL (CRÍTICO)
+          const userDoc = await getDoc(doc(db, "users", uid));
+          
+          if (!userDoc.exists()) {
+              throw new Error("Usuario no encontrado en la base de datos.");
+          }
+
+          const userData = userDoc.data();
+          
+          // AQUÍ ESTÁ LA RESTRICCIÓN: Si no es 'admin', se rechaza
+          if (userData.role !== 'admin') {
+              throw new Error("⛔ ACCESO DENEGADO: Estas credenciales no pertenecen a un Gerente.");
+          }
+
+          // 4. Si pasó la validación, ejecutar la devolución
           const batch = writeBatch(db);
           
-          // A) Actualizar Orden
+          // A) Marcar orden como devuelta
           const orderRef = doc(db, "orders", selectedOrder.id);
           batch.update(orderRef, {
               status: OrderStatus.RETURNED,
               returnReason: returnReason,
-              authorizedBy: userCred.user.email,
+              authorizedBy: userData.name, // Registramos el nombre del gerente
               returnedAt: serverTimestamp()
           });
 
-          // B) Devolver Stock
+          // B) Restaurar Stock
           selectedOrder.items.forEach(item => {
               const productRef = doc(db, "products", item.id);
               batch.update(productRef, {
@@ -99,12 +111,13 @@ export const HistoryView: React.FC = () => {
               });
           });
 
-          // C) Registrar Auditoría
+          // C) Registrar en Auditoría
           const auditRef = doc(collection(db, "audit_logs"));
           batch.set(auditRef, {
               action: "RETURN_PROCESSED",
               orderId: selectedOrder.id,
-              authorizedBy: userCred.user.email,
+              authorizedByUID: uid,
+              authorizedByName: userData.name,
               reason: returnReason,
               amount: selectedOrder.total,
               timestamp: serverTimestamp()
@@ -112,34 +125,35 @@ export const HistoryView: React.FC = () => {
 
           await batch.commit();
 
-          alert("Devolución procesada correctamente. Inventario restaurado.");
+          alert(`✅ Devolución autorizada por ${userData.name}. Inventario restaurado.`);
           setShowReturnModal(false);
-          // Limpiar formulario
           setAdminEmail(''); setAdminPassword(''); setReturnReason('');
-          fetchOrders(); // Recargar datos
+          fetchOrders(); 
 
       } catch (error: any) {
           console.error(error);
-          alert("Error de autorización: " + error.message);
+          let msg = error.message;
+          if (error.code === 'auth/invalid-credential') msg = "Correo o contraseña incorrectos.";
+          alert(msg);
       } finally {
           if (secondaryApp) deleteApp(secondaryApp);
           setIsAuthorizing(false);
       }
   };
 
-  // --- CÁLCULOS (Excluyendo devoluciones) ---
+  // --- CÁLCULOS ---
   const validOrders = orders.filter(o => o.status !== OrderStatus.RETURNED);
   const returnedOrders = orders.filter(o => o.status === OrderStatus.RETURNED);
 
   const dailySummary = {
       grossSales: orders.reduce((sum, o) => sum + (o.status !== OrderStatus.RETURNED ? (o.total || 0) : 0), 0),
       returnsTotal: returnedOrders.reduce((sum, o) => sum + (o.total || 0), 0),
-      netSales: 0, // Se calcula abajo
+      netSales: 0,
       totalOrders: validOrders.length,
       cashTotal: validOrders.filter(o => o.paymentMethod === 'cash').reduce((sum, o) => sum + (o.total || 0), 0),
       cardTotal: validOrders.filter(o => o.paymentMethod === 'card').reduce((sum, o) => sum + (o.total || 0), 0),
   };
-  dailySummary.netSales = dailySummary.grossSales; // Net sales son las ventas válidas (ya filtramos arriba)
+  dailySummary.netSales = dailySummary.grossSales;
 
   const changeDate = (days: number) => {
       const newDate = new Date(selectedDate);
@@ -162,11 +176,11 @@ export const HistoryView: React.FC = () => {
             <div className="p-6 text-center border-b-2 border-dashed border-gray-300">
                 <h2 className="text-xl font-black uppercase mb-1">Restaurante Upiicsa</h2>
                 <p className="text-xs font-mono text-gray-500">{title}</p>
-                {isReturnTicket && <p className="text-sm font-bold mt-1">*** DEVOLUCIÓN ***</p>}
+                {isReturnTicket && <p className="text-sm font-bold mt-1 text-red-600">*** DEVOLUCIÓN ***</p>}
                 
                 <div className="mt-4 text-left font-mono text-xs">
-                    <p>Fecha Original: {order.createdAt ? formatDate(order.createdAt) : '-'}</p>
-                    {isReturnTicket && <p>Fecha Devolución: {order.returnedAt ? formatDate(order.returnedAt) : 'Hoy'}</p>}
+                    <p>Fecha: {order.createdAt ? formatDate(order.createdAt) : '-'}</p>
+                    {isReturnTicket && <p>Devuelto el: {order.returnedAt ? formatDate(order.returnedAt) : 'Hoy'}</p>}
                     {order.id && <p>Folio: #{order.id.slice(-6).toUpperCase()}</p>}
                 </div>
             </div>
@@ -188,7 +202,7 @@ export const HistoryView: React.FC = () => {
                         </div>
                         
                         {dailySummary.returnsTotal > 0 && (
-                            <div className="flex justify-between text-red-600">
+                            <div className="flex justify-between text-red-600 font-bold">
                                 <span>(-) Devoluciones</span>
                                 <span>-${dailySummary.returnsTotal.toFixed(2)}</span>
                             </div>
@@ -227,11 +241,11 @@ export const HistoryView: React.FC = () => {
                         </table>
                         
                         {isReturnTicket && (
-                            <div className="border-t border-black pt-2 mb-4">
-                                <p className="font-bold">Motivo:</p>
-                                <p className="italic">{order.returnReason}</p>
-                                <p className="mt-1 font-bold">Autorizó:</p>
-                                <p>{order.authorizedBy}</p>
+                            <div className="border-t border-black pt-2 mb-4 bg-gray-100 p-2 text-center">
+                                <p className="font-bold text-xs">AUTORIZADO POR GERENTE:</p>
+                                <p className="uppercase">{order.authorizedBy}</p>
+                                <p className="mt-2 font-bold text-xs">MOTIVO:</p>
+                                <p className="italic">"{order.returnReason}"</p>
                             </div>
                         )}
                     </>
@@ -466,20 +480,20 @@ export const HistoryView: React.FC = () => {
               <div className="bg-surface-dark w-full max-w-md rounded-xl p-6 shadow-2xl border border-white/10">
                   <h3 className="text-white text-xl font-bold mb-4 flex items-center gap-2">
                       <span className="material-symbols-outlined text-red-400">admin_panel_settings</span>
-                      Autorización Requerida
+                      Autorización de Gerente
                   </h3>
-                  <p className="text-secondary text-sm mb-4">Solo un gerente puede autorizar devoluciones. Esto descontará el dinero de caja y restaurará el inventario.</p>
+                  <p className="text-secondary text-sm mb-4">Esta acción requiere permisos de administrador. Ingrese las credenciales del gerente para continuar.</p>
                   
                   <form onSubmit={handleAuthorizeReturn} className="space-y-4">
                       <div>
-                          <label className="text-secondary text-xs font-bold uppercase block mb-1">Motivo de Devolución</label>
+                          <label className="text-secondary text-xs font-bold uppercase block mb-1">Motivo</label>
                           <input type="text" required autoFocus className="w-full bg-black/20 text-white p-3 rounded-lg border border-white/10 focus:border-red-400 outline-none" 
-                              placeholder="Ej. Cliente insatisfecho, error de cobro..."
+                              placeholder="Razón de la devolución..."
                               value={returnReason} onChange={e => setReturnReason(e.target.value)} />
                       </div>
                       
                       <div className="border-t border-white/10 pt-4">
-                          <p className="text-white text-sm font-bold mb-2">Credenciales de Gerente</p>
+                          <p className="text-white text-sm font-bold mb-2">Credenciales</p>
                           <input type="email" required className="w-full bg-black/20 text-white p-3 rounded-lg border border-white/10 mb-2 focus:border-primary outline-none" 
                               placeholder="Correo de Gerente"
                               value={adminEmail} onChange={e => setAdminEmail(e.target.value)} />
@@ -491,7 +505,7 @@ export const HistoryView: React.FC = () => {
                       <div className="flex justify-end gap-3 pt-4">
                           <button type="button" onClick={() => setShowReturnModal(false)} className="px-4 py-2 text-gray-300 font-bold hover:text-white">Cancelar</button>
                           <button type="submit" disabled={isAuthorizing} className="px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-500 shadow-lg disabled:opacity-50 flex items-center gap-2">
-                              {isAuthorizing ? 'Procesando...' : 'Autorizar Devolución'}
+                              {isAuthorizing ? 'Validando...' : 'Autorizar'}
                           </button>
                       </div>
                   </form>
